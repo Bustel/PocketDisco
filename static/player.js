@@ -29,7 +29,10 @@ function init() {
     bufferedSegments = [];
     isPlaying = false;
 
-    loadSound(elements[0]);
+   // loadSound(elements[0]);
+
+    var http_worker = new Worker('/static/segment_loader.js');
+    http_worker.postMessage(["start", 5000])
 }
 
 function buttonTapped() {
