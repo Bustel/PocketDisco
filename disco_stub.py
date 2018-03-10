@@ -53,7 +53,7 @@ def api_endpoint():
         for i in range(seq_no, max):
             sample_file += '{"no": ' + str(i) + ','
             sample_file += '"duration": ' + "{0:.3f}".format(times[i]) + ' ,'
-            sample_file += '"url": "static/media/out00' + str(i) + '.wav"}'
+            sample_file += '"url": "/static/media/out00' + str(i) + '.wav"}'
             if i < max - 1:
                 sample_file += ','
         sample_file += ']}'

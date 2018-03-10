@@ -1,10 +1,4 @@
 class Ringbuffer {
-    storage;
-    capacity;
-
-    current_consumer;
-    current_producer;
-
     constructor(capacity) {
         this.capacity = capacity;
         this.storage = [];

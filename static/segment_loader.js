@@ -72,10 +72,8 @@ function loadSound(segment) {
     request.open("get", segment.url, false);
     request.responseType = "arraybuffer";
     request.onload = function () {
-        context.decodeAudioData(request.response, function (buffer) {
-            segment.buffer = buffer;
-            postMessage(["segment", segment]);
-        });
+        segment.data = request.response;
+        postMessage(["segment", segment]);
     };
     request.send();
 }

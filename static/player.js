@@ -36,6 +36,11 @@ function init() {
 }
 
 function processNewSegment(segment) {
+    //Decode segment first:
+    context.decodeAudioData(segment.data, function (buffer) {
+        segment.buffer = buffer;
+    });
+
     if (isPlaying) {
         buffer.store(segment);
         scheduleSegment(segment, 0);
@@ -132,7 +137,7 @@ function schedulePlayback(time, offset, segment) {
         }
     };
 
-    console.log("Scheduling segment no. " + segment.no + " at " + time);
+    console.info("Scheduling segment no. " + segment.no + " at " + time + " [offset = " + offset + "]");
 
     source.start(time, offset);
 }
