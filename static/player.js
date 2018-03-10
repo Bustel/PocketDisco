@@ -22,23 +22,13 @@ function init() {
     isStopped = true;
 
     buffer = new Ringbuffer(5);
-
-    let http_worker = new Worker('/static/segment_loader.js');
-    http_worker.postMessage(["start", 5000]);
-    http_worker.onmessage = function (e) {
-        if (e.data[0] === "segment") {
-            processNewSegment(e.data[1]);
-        }
-        if (e.data[0] === "gap") {
-            //TODO
-        }
-    };
 }
 
 function processNewSegment(segment) {
     //Decode segment first:
     context.decodeAudioData(segment.data, function (buffer) {
         segment.buffer = buffer;
+        segment.data = null;
     });
 
     if (isPlaying) {
@@ -64,8 +54,8 @@ function processNewSegment(segment) {
 }
 
 function get_offset(segment) {
-    let seg_end_time = segment.start_time + segment.duration * 1000;
-    let now = (new Date()).getTime();
+    let seg_end_time = segment.start_time + segment.duration;
+    let now = (new Date()).getTime() / 1000; //need seconds
 
     if ((now < segment.start_time) || (now >= seg_end_time)) {
         return -1;
@@ -79,24 +69,43 @@ function buttonTapped() {
     }
 
     if (isStopped) {
-        //Find first segment + start at offset. Then, schedule all other elements in buffer:
-
-        let found_first = false;
-        let index = 0;
-        let segment = buffer.peek(index);
-        while (segment != null) {
-            let offset = (!found_first) ? get_offset(segment) : 0;
-            if (offset === -1) {
-                buffer.get(); //Already played: skip element
+        let http_worker = new Worker('/static/segment_loader.js');
+        http_worker.postMessage(["start", 3000]);
+        http_worker.onmessage = function (e) {
+            if (e.data[0] === "segment") {
+                processNewSegment(e.data[1]);
             }
-            else {
-                found_first = true;
-                scheduleSegment(segment, offset);
-                index++;
+            if (e.data[0] === "gap") {
+                //TODO
             }
-            segment = buffer.peek(index);
-        }
+        };
+        isWaiting = true;
     }
+
+    // if (isStopped) {
+    //     //Find first segment + start at offset. Then, schedule all other elements in buffer:
+    //
+    //     let found_first = false;
+    //     let index = 0;
+    //     let segment = buffer.peek(index);
+    //     while (segment != null) {
+    //         let offset = (!found_first) ? get_offset(segment) : 0;
+    //         if (offset === -1) {
+    //             buffer.get(); //Already played: skip element
+    //         }
+    //         else {
+    //             found_first = true;
+    //             scheduleSegment(segment, offset);
+    //             index++;
+    //         }
+    //         segment = buffer.peek(index);
+    //     }
+    //
+    //     if (!found_first) {
+    //         console.warn("All segments in buffer have already been played.");
+    //         isWaiting = true;
+    //     }
+    // }
 }
 
 function scheduleSegment(segment, offset) {

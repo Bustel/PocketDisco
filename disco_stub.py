@@ -42,10 +42,10 @@ def api_endpoint():
         for i in range(0, seq_no):
             segment_offset += times[i]
 
-        m_segment_time = math.floor((ref_time + segment_offset) * 1000)
+        m_segment_time = ref_time + segment_offset
 
         sample_file = "{"
-        sample_file += '"reference": "' + str(m_segment_time) + '",'
+        sample_file += '"reference": ' + "{0:.3f}".format(m_segment_time) + ','
         sample_file += '"segments": ['
 
         max = seq_no + 3 if seq_no + 3 < len(times) else len(times)

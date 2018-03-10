@@ -54,7 +54,7 @@ function timer() {
                 last_seq_no = segment.no;
             }
 
-            prev_durations += segments[i].duration * 1000;
+            prev_durations += segments[i].duration;
         }
     };
     request.send();
