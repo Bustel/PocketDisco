@@ -8,6 +8,9 @@ let isWaiting;
 let isStopped;
 
 let buffer = null;
+let consumer;
+let producer;
+const buffer_capacity = 5;
 
 window.onload = init;
 
@@ -21,35 +24,48 @@ function init() {
     isWaiting = false;
     isStopped = true;
 
-    buffer = new Ringbuffer(5);
+    buffer = [];
+    consumer = -1;
+    producer = -1;
+}
+
+function store_segment(segment) {
+    producer++;
+    buffer[producer % buffer_capacity] = segment;
+}
+
+function get_segment(index) {
+    if (index === -1) {
+        return null;
+    }
+    return buffer[index % buffer_capacity];
 }
 
 function processNewSegment(segment) {
     //Decode segment first:
     context.decodeAudioData(segment.data, function (buffer) {
         segment.buffer = buffer;
-        segment.data = null;
-    });
 
-    if (isPlaying) {
-        buffer.store(segment);
-        scheduleSegment(segment, 0);
+        if (isPlaying) {
+            store_segment(segment);
+            scheduleSegment(producer, 0);
 
-    } else if (isWaiting) {
-        let offset = get_offset(segment);
+        } else if (isWaiting) {
+            let offset = get_offset(segment);
 
-        if (offset === -1) {
-            console.info("Segment with no. " + segment.no + " has already been played by other clients.");
-            return;
+            if (offset === -1) {
+                console.info("Segment with no. " + segment.no + " has already been played by other clients.");
+                return;
+            }
+
+            //Play segment
+            store_segment(segment);
+            scheduleSegment(producer, 0);
+
+        } else if (isStopped) {
+            store_segment(segment);
         }
-
-        //Play segment
-        buffer.store(segment);
-        scheduleSegment(segment, offset);
-
-    } else if (isStopped) {
-        buffer.store(segment);
-    }
+    });
 
 }
 
@@ -79,7 +95,9 @@ function buttonTapped() {
                 //TODO
             }
         };
+
         isWaiting = true;
+        isStopped = false;
     }
 
     // if (isStopped) {
@@ -108,7 +126,7 @@ function buttonTapped() {
     // }
 }
 
-function scheduleSegment(segment, offset) {
+function scheduleSegment(index, offset) {
     let start_time;
 
     if (isStopped || isWaiting) {
@@ -127,27 +145,44 @@ function scheduleSegment(segment, offset) {
     isStopped = false;
     isWaiting = false;
 
-    schedulePlayback(start_time, offset, segment);
+    //Prepare playback:
+    let source = context.createBufferSource();
+    source.buffer = get_segment(index).buffer;
+    source.connect(context.destination);
+    source.start(start_time, offset);
 
-    last_seg_end_time += segment.duration - offset;
+    last_seg_end_time += get_segment(index).duration - offset;
 }
 
+function loadSound(url) {
+    var request;
 
-function schedulePlayback(time, offset, segment) {
-    let source = context.createBufferSource(); // creates a sound source
-    source.buffer = segment.buffer;                    // tell the source which sound to play
-    source.connect(context.destination);       // connect the source to the context's destination (the speakers)
-
-    source.onended = function (ev) {
-        buffer.get();
-
-        if (buffer.get_length() === 0) {
-            isWaiting = true;
-        }
+    // Load the sound
+    request = new window.XMLHttpRequest();
+    request.open("get", url, true);
+    request.responseType = "arraybuffer";
+    request.onload = function () {
+        let segment = {};
+        segment.data = request.response;
+        processNewSegment(segment);
     };
+    request.send();
+}
+
+function schedulePlayback(time, offset, index) {
+
+
+    // source.onended = function (ev) {
+    //     consumer++;
+    //
+    //     if (consumer === producer) {
+    //         console.info("Cannot continue playback: buffer empty.");
+    //         isWaiting = true;
+    //     }
+    // };
 
     console.info("Scheduling segment no. " + segment.no + " at " + time + " [offset = " + offset + "]");
 
-    source.start(time, offset);
+    source.start(0);
 }
 
