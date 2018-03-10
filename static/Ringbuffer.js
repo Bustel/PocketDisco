@@ -13,6 +13,22 @@ class Ringbuffer {
         this.current_producer = -1;
     }
 
+    get_length() {
+        return this.current_producer - this.current_consumer;
+    }
+
+    peek(offset) {
+        let consumer_index = this.current_consumer + 1 + offset;
+
+        if (this.current_producer < consumer_index) {
+            //Item at index has not been produced yet:
+            return null;
+        }
+
+        let index = consumer_index % this.capacity;
+        return this.storage[index];
+    }
+
     get() {
         this.current_consumer++;
 

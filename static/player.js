@@ -1,29 +1,29 @@
-var context;
+let context;
 
-var bufferedSegments;
-var currentDownloadIndex;
-var currentPlaybackIndex;
+let playback_start_local_time;             //Start time of very first segment in list of buffered segments
+let last_seg_end_time;  //End time of last currently scheduled segment (offset from playback start time)
 
-var scheduleAheadTime = 0;      // How far ahead to schedule audio (sec)
+let isPlaying;
+let isWaiting;
+let isStopped;
 
-var audioStartTime;             //Start time of very first segment in list of buffered segments
-
-var isPlaying;
+let buffer = null;
 
 window.onload = init;
 
 function init() {
-    var btnPlay = document.getElementById("play");
+    let btnPlay = document.getElementById("play");
     btnPlay.addEventListener("click", buttonTapped);
 
     context = new (window.AudioContext || window.webkitAudioContext)();
 
-    currentDownloadIndex = 0;
-    currentPlaybackIndex = -1;
-    bufferedSegments = [];
     isPlaying = false;
+    isWaiting = false;
+    isStopped = true;
 
-    var http_worker = new Worker('/static/segment_loader.js');
+    buffer = new Ringbuffer(5);
+
+    let http_worker = new Worker('/static/segment_loader.js');
     http_worker.postMessage(["start", 5000]);
     http_worker.onmessage = function (e) {
         if (e.data[0] === "segment") {
@@ -36,67 +36,104 @@ function init() {
 }
 
 function processNewSegment(segment) {
+    if (isPlaying) {
+        buffer.store(segment);
+        scheduleSegment(segment, 0);
 
+    } else if (isWaiting) {
+        let offset = get_offset(segment);
+
+        if (offset === -1) {
+            console.info("Segment with no. " + segment.no + " has already been played by other clients.");
+            return;
+        }
+
+        //Play segment
+        buffer.store(segment);
+        scheduleSegment(segment, offset);
+
+    } else if (isStopped) {
+        buffer.store(segment);
+    }
+
+}
+
+function get_offset(segment) {
+    let seg_end_time = segment.start_time + segment.duration * 1000;
+    let now = (new Date()).getTime();
+
+    if ((now < segment.start_time) || (now >= seg_end_time)) {
+        return -1;
+    }
+    return now - segment.start_time;
 }
 
 function buttonTapped() {
-    if (!isPlaying) {
-        var i;
-        for (i = 0; i < bufferedSegments.length; i++) {
-            scheduleBufferItem(i);
+    if (isPlaying || isWaiting) {
+        return;
+    }
+
+    if (isStopped) {
+        //Find first segment + start at offset. Then, schedule all other elements in buffer:
+
+        let found_first = false;
+        let index = 0;
+        let segment = buffer.peek(index);
+        while (segment != null) {
+            let offset = (!found_first) ? get_offset(segment) : 0;
+            if (offset === -1) {
+                buffer.get(); //Already played: skip element
+            }
+            else {
+                found_first = true;
+                scheduleSegment(segment, offset);
+                index++;
+            }
+            segment = buffer.peek(index);
         }
-        isPlaying = true;
     }
 }
 
-function loadSound(url) {
-    var request;
+function scheduleSegment(segment, offset) {
+    let start_time;
 
-    // Load the sound
-    request = new window.XMLHttpRequest();
-    request.open("get", url, true);
-    request.responseType = "arraybuffer";
-    request.onload = function () {
-        context.decodeAudioData(request.response, function (buffer) {
-            bufferedSegments[currentDownloadIndex] = buffer;
-            currentDownloadIndex++;
+    if (isStopped || isWaiting) {
+        //Just starting playback:
+        playback_start_local_time = context.currentTime;
+        last_seg_end_time = 0;
 
-            //Load next segment:
-            if (currentDownloadIndex < elements.length) {
-                loadSound(elements[currentDownloadIndex]);
-            }
-
-            if (isPlaying) {
-                scheduleBufferItem(currentDownloadIndex - 1);
-            }
-        });
-    };
-    request.send();
-}
-
-function scheduleBufferItem(position) {
-    //Sum durations of previous items:
-    timeOffset = 0;
-    var i;
-    for (i = 0; i < position; i++) {
-        timeOffset += bufferedSegments[i].duration - scheduleAheadTime;
+        start_time = 0;
+    }
+    else {
+        start_time = playback_start_local_time + last_seg_end_time
     }
 
-    schedulePlayback(timeOffset, bufferedSegments[position]);
+    //Update state:
+    isPlaying = true;
+    isStopped = false;
+    isWaiting = false;
+
+    schedulePlayback(start_time, offset, segment);
+
+    last_seg_end_time += segment.duration - offset;
 }
 
-function schedulePlayback(time, buffer) {
-    var source = context.createBufferSource(); // creates a sound source
-    source.buffer = buffer;                    // tell the source which sound to play
+
+function schedulePlayback(time, offset, segment) {
+    let source = context.createBufferSource(); // creates a sound source
+    source.buffer = segment.buffer;                    // tell the source which sound to play
     source.connect(context.destination);       // connect the source to the context's destination (the speakers)
 
-    if (audioStartTime == null) {
-        audioStartTime = context.currentTime;
-    }
+    source.onended = function (ev) {
+        buffer.get();
 
-    actualStartTime = audioStartTime + time;
-    console.log("Scheduling audio at " + actualStartTime);
+        if (buffer.get_length() === 0) {
+            isWaiting = true;
+        }
+    };
 
-    source.start(actualStartTime);
+    console.log("Scheduling segment no. " + segment.no + " at " + time);
+
+    source.start(time, offset);
 }
 

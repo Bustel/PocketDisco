@@ -1,6 +1,8 @@
 let timer_var = null;
 let last_seq_no = -1;   //Index of last segment downloaded
 
+const download_limit = 3;
+
 function timer() {
     const request = new XMLHttpRequest();
     request.open("get", "/api/get_tracks", true);
@@ -19,11 +21,13 @@ function timer() {
             //Init seq no. counter:
             last_seq_no = segments[0].no - 1;
         }
-        
+
+
+        let max = (segments.length < download_limit) ? segments.length : download_limit;
 
         let i;
         let prev_durations = ref_time;
-        for (i = 0; i < segments.length; i++) {
+        for (i = 0; i < max; i++) {
             const segment = segments[i];
             segment.start_time = prev_durations;
 
@@ -50,14 +54,14 @@ function timer() {
                 last_seq_no = segment.no;
             }
 
-            prev_durations += segments[i].duration;
+            prev_durations += segments[i].duration * 1000;
         }
     };
     request.send();
 }
 
 function stopTimer() {
-    if (timer_var) {
+    if (timer_var != null) {
         clearTimeout(timer_var);
         timer_var = null;
     }
