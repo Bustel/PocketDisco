@@ -1,32 +1,51 @@
-var timer_var = null;
-var last_seq_no = -1;
+let timer_var = null;
+let last_seq_no = -1;   //Index of last segment downloaded
 
 function timer() {
-    var request = new XMLHttpRequest();
+    const request = new XMLHttpRequest();
     request.open("get", "/api/get_tracks", true);
     request.responseType = "json";
     request.onload = function () {
-        var ref_time = request.response.reference;
-        var segments = request.response.segments;
+        const ref_time = request.response.reference;
+        const segments = request.response.segments;
 
         if (segments.length === 0) {
+            console.info("Empty segment list.");
             return;
         }
 
         //{ no: 0, duration: 2.0004, url: "http://test/location" }
-
-        //Check seq no of first element:
         if (last_seq_no === -1) {
+            //Init seq no. counter:
             last_seq_no = segments[0].no - 1;
         }
+        
 
-        var i;
-        var prev_durations = ref_time;
+        let i;
+        let prev_durations = ref_time;
         for (i = 0; i < segments.length; i++) {
-            var segment = segments[i];
+            const segment = segments[i];
             segment.start_time = prev_durations;
 
-            if (segment.no >= last_seq_no + 1) {
+            const expected = last_seq_no + 1;
+
+            if (segment.no < expected) {
+                //We have already seen this segment:
+                console.debug("Already have " + segment.no);
+                continue;
+            }
+            if (segment.no > expected) {
+                //There was a gap: stop everything
+                console.error("Gap detected: expected " + expected + ", but got " + segment.no);
+                last_seq_no = -1;
+                stopTimer();
+
+                postMessage(["gap"]);
+                break;
+            }
+            if (segment.no === expected) {
+                //This is the next expected segment:
+                console.debug("Downloading segment no. " + segment.no);
                 loadSound(segment);
                 last_seq_no = segment.no;
             }
@@ -37,14 +56,21 @@ function timer() {
     request.send();
 }
 
+function stopTimer() {
+    if (timer_var) {
+        clearTimeout(timer_var);
+        timer_var = null;
+    }
+}
+
 function loadSound(segment) {
-    var request = new XMLHttpRequest();
+    const request = new XMLHttpRequest();
     request.open("get", segment.url, false);
     request.responseType = "arraybuffer";
     request.onload = function () {
         context.decodeAudioData(request.response, function (buffer) {
             segment.buffer = buffer;
-            postMessage(segment);
+            postMessage(["segment", segment]);
         });
     };
     request.send();
@@ -61,7 +87,7 @@ onmessage = function (event) {
     if (event.data[0] === "stop") {
         console.log("Stopping timer.");
         if (timer_var != null) {
-            clearTimeout(timer_var);
+            stopTimer();
             timer_var = null;
         }
         close();

@@ -6,7 +6,6 @@ var currentPlaybackIndex;
 
 var scheduleAheadTime = 0;      // How far ahead to schedule audio (sec)
 
-var elements;                   //List of URLs to audio segments
 var audioStartTime;             //Start time of very first segment in list of buffered segments
 
 var isPlaying;
@@ -17,11 +16,6 @@ function init() {
     var btnPlay = document.getElementById("play");
     btnPlay.addEventListener("click", buttonTapped);
 
-    elements = [];
-    for (i = 0; i < 12; i++) {
-        elements[i] = "/static/media/out" + ("000" + i).slice(-3) + ".wav";
-    }
-
     context = new (window.AudioContext || window.webkitAudioContext)();
 
     currentDownloadIndex = 0;
@@ -29,10 +23,20 @@ function init() {
     bufferedSegments = [];
     isPlaying = false;
 
-   // loadSound(elements[0]);
-
     var http_worker = new Worker('/static/segment_loader.js');
-    http_worker.postMessage(["start", 5000])
+    http_worker.postMessage(["start", 5000]);
+    http_worker.onmessage = function (e) {
+        if (e.data[0] === "segment") {
+            processNewSegment(e.data[1]);
+        }
+        if (e.data[0] === "gap") {
+            //TODO
+        }
+    };
+}
+
+function processNewSegment(segment) {
+
 }
 
 function buttonTapped() {
