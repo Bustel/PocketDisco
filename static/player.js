@@ -46,6 +46,9 @@ function processNewSegment(segment) {
     context.decodeAudioData(segment.data, function (buffer) {
         segment.buffer = buffer;
 
+        let now = (new Date()).getTime() / 1000; //need seconds
+        console.log("seq " + segment.no + " started at " + segment.start_time + " now is " + now);
+
         if (isPlaying) {
             store_segment(segment);
             scheduleSegment(producer, 0);
@@ -152,37 +155,5 @@ function scheduleSegment(index, offset) {
     source.start(start_time, offset);
 
     last_seg_end_time += get_segment(index).duration - offset;
-}
-
-function loadSound(url) {
-    var request;
-
-    // Load the sound
-    request = new window.XMLHttpRequest();
-    request.open("get", url, true);
-    request.responseType = "arraybuffer";
-    request.onload = function () {
-        let segment = {};
-        segment.data = request.response;
-        processNewSegment(segment);
-    };
-    request.send();
-}
-
-function schedulePlayback(time, offset, index) {
-
-
-    // source.onended = function (ev) {
-    //     consumer++;
-    //
-    //     if (consumer === producer) {
-    //         console.info("Cannot continue playback: buffer empty.");
-    //         isWaiting = true;
-    //     }
-    // };
-
-    console.info("Scheduling segment no. " + segment.no + " at " + time + " [offset = " + offset + "]");
-
-    source.start(0);
 }
 

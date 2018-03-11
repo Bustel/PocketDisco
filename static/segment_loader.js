@@ -8,6 +8,8 @@ function timer() {
     request.open("get", "/api/get_tracks", true);
     request.responseType = "json";
     request.onload = function () {
+        console.log("Timer elapsed");
+
         const ref_time = request.response.reference;
         const segments = request.response.segments;
 
@@ -36,9 +38,7 @@ function timer() {
             if (segment.no < expected) {
                 //We have already seen this segment:
                 console.debug("Already have " + segment.no);
-                continue;
-            }
-            if (segment.no > expected) {
+            } else if (segment.no > expected) {
                 //There was a gap: stop everything
                 console.error("Gap detected: expected " + expected + ", but got " + segment.no);
                 last_seq_no = -1;
@@ -46,8 +46,7 @@ function timer() {
 
                 postMessage(["gap"]);
                 break;
-            }
-            if (segment.no === expected) {
+            } else if (segment.no === expected) {
                 //This is the next expected segment:
                 console.debug("Downloading segment no. " + segment.no);
                 loadSound(segment);

@@ -44,6 +44,8 @@ def api_endpoint():
 
         m_segment_time = ref_time + segment_offset
 
+        print("seq " + str(seq_no) + " start " + "{0:.3f}".format(m_segment_time))
+
         sample_file = "{"
         sample_file += '"reference": ' + "{0:.3f}".format(m_segment_time) + ','
         sample_file += '"segments": ['
