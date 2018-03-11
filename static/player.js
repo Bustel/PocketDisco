@@ -57,13 +57,20 @@ function processNewSegment(segment) {
             let offset = get_offset(segment);
 
             if (offset === -1) {
-                console.info("Segment with no. " + segment.no + " has already been played by other clients.");
+                console.info("Segment no. " + segment.no + " has already been played by other clients.");
                 return;
             }
 
-            //Play segment
+            if (offset === -2) {
+                console.info("Received segment " + segment.no + " not awaited one.");
+                return; //Segment not ready for playback yet
+            }
+
+            //Play segment:
+            console.info("Scheduling segment " + segment.no + " at " + offset);
+
             store_segment(segment);
-            scheduleSegment(producer, 0);
+            scheduleSegment(producer, offset);
 
         } else if (isStopped) {
             store_segment(segment);
@@ -76,9 +83,15 @@ function get_offset(segment) {
     let seg_end_time = segment.start_time + segment.duration;
     let now = (new Date()).getTime() / 1000; //need seconds
 
-    if ((now < segment.start_time) || (now >= seg_end_time)) {
+    console.log("Segment " + segment.no + " from " + segment.start_time + " to " + seg_end_time);
+
+    if (now < segment.start_time) {
+        return -2;
+    }
+    if (now >= seg_end_time) {
         return -1;
     }
+
     return now - segment.start_time;
 }
 

@@ -30,7 +30,7 @@ def api_endpoint():
         ref_time = time.time()
 
     passed = time.time() - ref_time
-    if passed >= 2:
+    if passed >= 4:
         seq_no += 1
 
     if seq_no >= len(times):

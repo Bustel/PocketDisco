@@ -15,6 +15,7 @@ function timer() {
 
         if (segments.length === 0) {
             console.info("Empty segment list.");
+            stopTimer();
             return;
         }
 
@@ -89,7 +90,6 @@ onmessage = function (event) {
         console.log("Stopping timer.");
         if (timer_var != null) {
             stopTimer();
-            timer_var = null;
         }
         close();
     }
