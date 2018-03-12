@@ -28,12 +28,17 @@ function processNewSegment(segment) {
     context.decodeAudioData(segment.data, function (buffer) {
         let now = (new Date()).getTime() / 1000; //need seconds
         console.log("seq " + segment.no + " started at " + segment.start_time + " now is " + now);
+        let seg_end_time = segment.start_time + segment.duration;
+        console.log("Segment " + segment.no + " from " + segment.start_time + " to " + seg_end_time);
+
+
 
         if (isPlaying) {
             scheduleSegment(buffer, 0);
 
         } else if (isWaiting) {
             let offset = get_offset(segment);
+
 
             if (offset === -1) {
                 console.info("Segment no. " + segment.no + " has already been played by other clients.");

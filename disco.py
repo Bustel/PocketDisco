@@ -12,7 +12,7 @@ FORMAT = pyaudio.paInt16
 RATE = 44100
 CHANNELS = 2
 SEGMENT_DURATION = 5
-MAX_SEGMENTS = 10
+MAX_SEGMENTS = 3
 PORT = 5000
 
 glRunning = False
@@ -97,7 +97,7 @@ class PCMBlob(audiotools.PCMReader):
         self.data.extend(chunk)
 
     def to_file(self, path):
-        audiotools.FlacAudio.from_pcm(path, self)
+        audiotools.WaveAudio.from_pcm(path, self)
 
     def close(self):
         pass
@@ -155,13 +155,27 @@ def update_segments(fname, duration, no):
     }
 
     with glSegmentLock:
-        if glReference is None:
-            glReference = time.time()
-
         if len(glSegments) >= MAX_SEGMENTS:
             glSegments.pop(0)
 
         glSegments.append(segment)
+
+        if glReference is None:
+            glReference = time.time()
+        else:
+            dur = 0
+            for seg in glSegments:
+                dur += seg['duration']
+            glReference = time.time() - dur + segment['duration']
+
+    dur = 0
+    for seg in glSegments:
+        dur += seg['duration']
+
+    start_time = glReference + dur - segment['duration']
+    print('Start time: %f' % start_time)
+    end_time = start_time + segment['duration']
+    print('End time: %f' % end_time)
 
 
 def run_flask():
@@ -185,7 +199,7 @@ def api_endpoint():
 
 @app.route('/segments/<path:segment>')
 def serve_segments(segment):
-    send_file(os.path.join('segments', segment), cache_timeout=SEGMENT_DURATION)
+    return send_file(os.path.join('segments', segment), cache_timeout=SEGMENT_DURATION)
 
 
 @app.route('/api/shutdown', methods=['POST'])
@@ -254,7 +268,7 @@ def main():
             else:
                 time.sleep(0.1)
 
-        file_path = os.path.join('segments', 'segment_%d.flac' % (seg_no % MAX_SEGMENTS))
+        file_path = os.path.join('segments', 'segment_%d.wav' % (seg_no % MAX_SEGMENTS))
         duration = len(blob.data) / (blob.rate * blob.width * blob.channels)
         update_segments(file_path, duration, seg_no)
         blob.to_file(file_path)
