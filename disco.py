@@ -11,7 +11,7 @@ from flask import Flask, jsonify, request, abort, send_file, render_template
 FORMAT = pyaudio.paInt16
 RATE = 44100
 CHANNELS = 2
-SEGMENT_DURATION = 5
+SEGMENT_DURATION = 4
 MAX_SEGMENTS = 3
 PORT = 5000
 
@@ -97,7 +97,7 @@ class PCMBlob(audiotools.PCMReader):
         self.data.extend(chunk)
 
     def to_file(self, path):
-        audiotools.WaveAudio.from_pcm(path, self)
+        audiotools.FlacAudio.from_pcm(path, self)
 
     def close(self):
         pass
@@ -156,26 +156,12 @@ def update_segments(fname, duration, no):
 
     with glSegmentLock:
         if len(glSegments) >= MAX_SEGMENTS:
-            glSegments.pop(0)
+            old_seg = glSegments.pop(0)
+
+            if glReference is not None:
+                glReference += old_seg['duration']
 
         glSegments.append(segment)
-
-        if glReference is None:
-            glReference = time.time()
-        else:
-            dur = 0
-            for seg in glSegments:
-                dur += seg['duration']
-            glReference = time.time() - dur + segment['duration']
-
-    dur = 0
-    for seg in glSegments:
-        dur += seg['duration']
-
-    start_time = glReference + dur - segment['duration']
-    print('Start time: %f' % start_time)
-    end_time = start_time + segment['duration']
-    print('End time: %f' % end_time)
 
 
 def run_flask():
@@ -189,7 +175,12 @@ def index():
 
 @app.route('/api/get_tracks')
 def api_endpoint():
+    global glReference
     with glSegmentLock:
+
+        if glReference is None:
+            glReference = time.time()
+
         tracklist = {
             'reference': glReference,
             'segments': glSegments
@@ -268,7 +259,7 @@ def main():
             else:
                 time.sleep(0.1)
 
-        file_path = os.path.join('segments', 'segment_%d.wav' % (seg_no % MAX_SEGMENTS))
+        file_path = os.path.join('segments', 'segment_%d.flac' % (seg_no % MAX_SEGMENTS))
         duration = len(blob.data) / (blob.rate * blob.width * blob.channels)
         update_segments(file_path, duration, seg_no)
         blob.to_file(file_path)
