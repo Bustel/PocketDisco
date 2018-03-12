@@ -38,10 +38,10 @@ function timer() {
 
             if (segment.no < expected) {
                 //We have already seen this segment:
-                console.debug("Already have " + segment.no);
+                console.info("Already have " + segment.no);
             } else if (segment.no > expected) {
                 //There was a gap: stop everything
-                console.error("Gap detected: expected " + expected + ", but got " + segment.no);
+                console.info("Gap detected: expected " + expected + ", but got " + segment.no);
                 last_seq_no = -1;
                 stopTimer();
 

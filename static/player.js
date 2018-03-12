@@ -7,17 +7,12 @@ let isPlaying;
 let isWaiting;
 let isStopped;
 
-let buffer = null;
-let consumer;
-let producer;
-const buffer_capacity = 5;
+let buffer;
+let bufferIndex;
 
 window.onload = init;
 
 function init() {
-    let btnPlay = document.getElementById("play");
-    btnPlay.addEventListener("click", buttonTapped);
-
     context = new (window.AudioContext || window.webkitAudioContext)();
 
     isPlaying = false;
@@ -25,33 +20,17 @@ function init() {
     isStopped = true;
 
     buffer = [];
-    consumer = -1;
-    producer = -1;
-}
-
-function store_segment(segment) {
-    producer++;
-    buffer[producer % buffer_capacity] = segment;
-}
-
-function get_segment(index) {
-    if (index === -1) {
-        return null;
-    }
-    return buffer[index % buffer_capacity];
+    bufferIndex = 0;
 }
 
 function processNewSegment(segment) {
     //Decode segment first:
     context.decodeAudioData(segment.data, function (buffer) {
-        segment.buffer = buffer;
-
         let now = (new Date()).getTime() / 1000; //need seconds
         console.log("seq " + segment.no + " started at " + segment.start_time + " now is " + now);
 
         if (isPlaying) {
-            store_segment(segment);
-            scheduleSegment(producer, 0);
+            scheduleSegment(buffer, 0);
 
         } else if (isWaiting) {
             let offset = get_offset(segment);
@@ -68,12 +47,13 @@ function processNewSegment(segment) {
 
             //Play segment:
             console.info("Scheduling segment " + segment.no + " at " + offset);
-
-            store_segment(segment);
-            scheduleSegment(producer, offset);
+            scheduleSegment(buffer, offset);
 
         } else if (isStopped) {
-            store_segment(segment);
+            //Store segment for later playback:
+            segment.buffer = buffer;
+            buffer[bufferIndex] = segment;
+            bufferIndex++;
         }
     });
 
@@ -142,7 +122,7 @@ function buttonTapped() {
     // }
 }
 
-function scheduleSegment(index, offset) {
+function scheduleSegment(buffer, offset) {
     let start_time;
 
     if (isStopped || isWaiting) {
@@ -163,10 +143,10 @@ function scheduleSegment(index, offset) {
 
     //Prepare playback:
     let source = context.createBufferSource();
-    source.buffer = get_segment(index).buffer;
+    source.buffer = buffer;
     source.connect(context.destination);
     source.start(start_time, offset);
 
-    last_seg_end_time += get_segment(index).duration - offset;
+    last_seg_end_time += buffer.duration - offset;
 }
 
