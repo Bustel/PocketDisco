@@ -4,6 +4,9 @@ import threading
 import time
 import os
 
+glPortAudio = pyaudio.PyAudio()
+glPALock = threading.Lock()
+
 
 class Ringbuffer:
     def __init__(self, size):
@@ -104,9 +107,18 @@ class PCMBlob(audiotools.PCMReader):
             return frames
 
 
+def terminate_portaudio():
+    global glPALock, glPortAudio
+
+    with glPALock:
+        glPortAudio.terminate()
+
+
 class InputStream(threading.Thread):
-    def __init__(self, channels, segment_duration, sampling_rate, format, max_segments, prefix):
+    def __init__(self, channels, segment_duration, sampling_rate, format, max_segments, prefix, device_name = None):
         super().__init__()
+
+        self.device_name = device_name
         self.channels = channels
         self.segment_duration = segment_duration
         self.sampling_rate = sampling_rate
@@ -152,15 +164,30 @@ class InputStream(threading.Thread):
         return None, pyaudio.paContinue
 
     def run(self):
+        global glPALock, glPortAudio
+
         self.running = True
 
-        p = pyaudio.PyAudio()
-        stream = p.open(format=pyaudio.paInt16,
-                        channels=self.channels,
-                        rate=self.sampling_rate,
-                        input=True,
-                        stream_callback=self.__callback,
-                        start=False)
+        with glPALock:
+            dev_index = None
+
+            if self.device_name is not None:
+                for i in range(0, glPortAudio.get_device_count()):
+                    dev_info = glPortAudio.get_device_info_by_index(i)
+                    if dev_info['name'] == self.device_name:
+                        dev_index = i
+                        print("Using dev index %d" % dev_index)
+
+                if dev_index is None:
+                    print("Could not find device \"%s\". Using default instead." % self.device_name)
+
+            stream = glPortAudio.open(format=pyaudio.paInt16,
+                            channels=self.channels,
+                            input_device_index=dev_index,
+                            rate=self.sampling_rate,
+                            input=True,
+                            stream_callback=self.__callback,
+                            start=False)
 
         print('Start recording...')
         stream.start_stream()
@@ -203,6 +230,5 @@ class InputStream(threading.Thread):
 
         stream.stop_stream()
         stream.close()
-        p.terminate()
         print('Stopped recording. Written %d segments.' % seg_no)
 
