@@ -1,8 +1,7 @@
-
 import os
 import time
 import requests
-import stream
+
 
 from flask import Flask, jsonify, request, abort, send_file, render_template
 
@@ -27,6 +26,24 @@ def run_flask():
 @app.route('/')
 def index():
     return render_template('index.html')
+
+
+@app.route('/api/time_sync', methods=['POST'])
+def time_sync():
+    js = request.get_json()
+    time_utc = js['local_time']
+    my_time = time.time()
+    offset = my_time - time_utc
+
+    resp = {
+        'local_time': time_utc,
+        'server_time': my_time,
+        'offset': offset
+    }
+
+    print('Offset', offset)
+
+    return jsonify(resp)
 
 
 @app.route('/api/get_tracks')
