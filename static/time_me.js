@@ -2,6 +2,7 @@ function time() {
     let time = {"local_time": new Date().getTime()};
 
     const request = new XMLHttpRequest();
+    request.responseType = "json";
     request.onload = function () {
         let server_time = request.response.server_time;
         let server_offset = request.response.offset;
