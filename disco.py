@@ -86,7 +86,7 @@ def main():
     if platform.system() == "Linux":
         device_name = "pulse"
     else:
-        device_name = "Stereomix (Realtek High Definit"
+        device_name = None
 
     for i in range(0, NO_STREAMS):
         s = stream.InputStream(CHANNELS,

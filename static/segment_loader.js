@@ -37,7 +37,6 @@ function timer() {
         for (i = 0; i < max; i++) {
             const segment = segments[i];
             const expected = last_seq_no + 1;
-            segment.start_time = prev_durations;
 
             if (segment.no < expected) {
                 //We have already seen this segment:
@@ -59,7 +58,7 @@ function timer() {
         }
 
         //re-schedule function:
-        timeout_handle = setTimeout(timer, interval);
+        timeout_handle = setTimeout(timer(), interval);
     };
     request.send();
 }
@@ -90,6 +89,8 @@ function stopTimer() {
 onmessage = function (event) {
     if ((event.data[0] === "start") && (is_active === false)) {
         is_active = true;
+
+        context = new (window.AudioContext || window.webkitAudioContext)();
 
         interval = event.data[1];
         console.log("Starting timer. Interval = " + interval);
