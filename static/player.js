@@ -7,7 +7,8 @@ let isPlaying;
 let isStopped;
 
 let segmentBuffer;
-let bufferIndex;
+let prodIndex; //index of lastly produced item
+let consIndex; //index of lastly consumed item
 
 window.onload = init;
 
@@ -21,7 +22,8 @@ function init() {
     isStopped = true;
 
     segmentBuffer = [];
-    bufferIndex = 0;
+    prodIndex = -1;
+    consIndex = -1;
 }
 
 function loadButtonTapped() {
@@ -54,8 +56,9 @@ function processNewSegment(segment) {
         } else if (isStopped) {
             //Store segment for later playback:
             segment.buffer = buffer;
-            segmentBuffer[bufferIndex] = segment;
-            bufferIndex++;
+
+            prodIndex++;
+            segmentBuffer[prodIndex] = segment;
 
             let btnPlay = document.getElementById("play");
             btnPlay.disabled = false;
@@ -88,10 +91,11 @@ function buttonTapped() {
     if (isStopped) {
         let found_first = false;
         let index;
-        let len = segmentBuffer.length;
-        for (index = 0; index < len; index++) {
+        let maxProd = prodIndex; //copy value to account for parallel access
+        for (index = consIndex; index <= maxProd; index++) {
             let offset = get_offset(segmentBuffer[index]);
             if (offset === -1) {
+                delete segmentBuffer[index];
                 continue; //Already played
             } else if (offset === -2) {
                 offset = 0; //Segment upcoming
@@ -102,6 +106,8 @@ function buttonTapped() {
             console.log("buttonTapped: scheduling " + segmentBuffer[index].no + " at " + offset);
 
             scheduleSegment(segmentBuffer[index].buffer, offset);
+            delete segmentBuffer[index];
+            consIndex = index;
         }
 
         if (!found_first) {
