@@ -32,7 +32,7 @@ def index():
 def time_sync():
     js = request.get_json()
     time_utc = js['local_time']
-    my_time = time.time()
+    my_time = time.time()*1000
     offset = my_time - time_utc
 
     resp = {
