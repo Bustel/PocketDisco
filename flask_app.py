@@ -31,19 +31,30 @@ def index():
 @app.route('/api/timesync', methods=['POST'])
 def time_sync():
     js = request.get_json()
-    time_utc = js['local_time']
+
+    #print(js)
+    js_time = js['js_time']
+    audio_time = js['audio_time'] * 1000
     my_time = time.time()*1000
-    offset = my_time - time_utc
+
+
+
+    offset_js = my_time - js_time
+    offset_audio = my_time - audio_time
 
     resp = {
-        'local_time': time_utc,
+        'local_time': js_time,
+        'local_time_audio': audio_time,
         'server_time': my_time,
-        'offset': offset
+        'offset': offset_js,
+        'offset_audio': offset_audio
     }
 
-    print('server_time', my_time)
-    print('local_time', time_utc)
-    print('Offset', offset)
+    #print('server_time', my_time)
+    #print('local_time', js_time)
+    #print('Offset', offset_js)
+    print('audio time', audio_time)
+    print('Offset Audio', offset_audio)
 
     return jsonify(resp)
 
@@ -62,6 +73,41 @@ def api_endpoint():
             'segments': s.segments
         }
         return jsonify(tracklist)
+
+
+@app.route('/api/get_current_segment')
+def get_current_segment():
+    global audio_streams
+    s = audio_streams[0]
+
+    with s.segment_lock:
+        if s.reference is not None:
+            prev_dur = s.reference
+            local_time = time.time()
+
+            cur_seg = None
+            start_time = None
+            for seg in s.segments:
+                start_time = prev_dur
+                end_time = start_time + seg['duration']
+
+                if start_time <= local_time < end_time:
+                    cur_seg = seg
+                    break
+                prev_dur += seg['duration']
+
+            if cur_seg is None:
+                abort(500)
+
+            offset = local_time - start_time
+            resp = {
+                "offset": offset,
+                "seg_no": cur_seg['no']
+            }
+
+            return jsonify(resp)
+        else:
+            abort(404)
 
 
 @app.route('/segments/<path:segment>')
