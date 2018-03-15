@@ -71,8 +71,13 @@ def main():
     global loaded_pulse_modules
     signal.signal(signal.SIGINT, sighandler)
 
+    if (platform.system() == 'Windows'):
+        os.chdir(os.path.dirname(sys.argv[0]))
+
     if not os.path.isdir('segments'):
         try:
+            print(os.getcwd())
+            print('segments folder not found')
             os.makedirs('segments')
         except OSError as e:
             print(e)
@@ -105,9 +110,6 @@ def main():
 
     input("Press any key to stop.")
     shutdown()
-
-
-
 
 if __name__ == '__main__':
     main()
