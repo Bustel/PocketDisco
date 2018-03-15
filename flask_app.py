@@ -81,33 +81,33 @@ def get_current_segment():
     s = audio_streams[0]
 
     with s.segment_lock:
-        if s.reference is not None:
-            prev_dur = s.reference
-            local_time = time.time()
+        if s.reference is None:
+            s.reference = time.time()
 
-            cur_seg = None
-            start_time = None
-            for seg in s.segments:
-                start_time = prev_dur
-                end_time = start_time + seg['duration']
+        prev_dur = s.reference
+        local_time = time.time()
 
-                if start_time <= local_time < end_time:
-                    cur_seg = seg
-                    break
-                prev_dur += seg['duration']
+        cur_seg = None
+        start_time = None
+        for seg in s.segments:
+            start_time = prev_dur
+            end_time = start_time + seg['duration']
 
-            if cur_seg is None:
-                abort(500)
+            if start_time <= local_time < end_time:
+                cur_seg = seg
+                break
+            prev_dur += seg['duration']
 
-            offset = local_time - start_time
-            resp = {
-                "offset": offset,
-                "seg_no": cur_seg['no']
-            }
+        if cur_seg is None:
+            abort(500)
 
-            return jsonify(resp)
-        else:
-            abort(404)
+        offset = local_time - start_time
+        resp = {
+            "offset": offset,
+            "seg_no": cur_seg['no']
+        }
+
+        return jsonify(resp)
 
 
 @app.route('/segments/<path:segment>')
