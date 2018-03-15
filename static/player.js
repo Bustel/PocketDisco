@@ -46,10 +46,6 @@ function loadButtonTapped() {
 function processNewSegment(segment) {
     //Decode segment first:
     context.decodeAudioData(segment.data, function (buffer) {
-        let now = (new Date()).getTime() / 1000; //need seconds
-
-        console.log("processNewSegment: seq " + segment.no + " started at " + segment.start_time + " now is " + now);
-
         if (isPlaying) {
             console.log("processNewSegment: scheduling seq " + segment.no);
             scheduleSegment(buffer, 0);
@@ -98,10 +94,10 @@ function buttonTapped() {
         }
 
         const request = new XMLHttpRequest();
-        request.open("get", "/api/get_current_segment", false);
+        request.open("get", "/api/get_current_segment", true);
         request.responseType = "json";
         request.onload = function () {
-            let seq_no = request.response.seq_no;
+            let seq_no = request.response.seg_no;
             let offset = request.offset;
 
             let found_first = false;
