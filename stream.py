@@ -1,8 +1,14 @@
-import audiotools
 import pyaudio
 import threading
 import time
 import os
+import platform
+
+if platform.system() == "Linux":
+    import audiotools
+else:
+    import audiotools_stub_win as audiotools
+    import wave
 
 glPortAudio = pyaudio.PyAudio()
 glPALock = threading.Lock()
@@ -82,7 +88,15 @@ class PCMBlob(audiotools.PCMReader):
         self.data.extend(chunk)
 
     def to_file(self, path):
-        audiotools.FlacAudio.from_pcm(path, self)
+        if platform.system() == "Linux":
+            audiotools.FlacAudio.from_pcm(path, self)
+        else:
+            with wave.open(path, "wb") as w:
+                w.setnchannels(self.channels)
+                w.setsampwidth(self.width)
+                w.setframerate(self.rate)
+
+                w.writeframes(self.data)
 
     def close(self):
         pass
@@ -168,6 +182,8 @@ class InputStream(threading.Thread):
 
         self.running = True
 
+        ftype = 'flac' if platform.system() == "Linux" else 'wav'
+
         with glPALock:
             dev_index = None
 
@@ -176,7 +192,6 @@ class InputStream(threading.Thread):
                     dev_info = glPortAudio.get_device_info_by_index(i)
                     if dev_info['name'] == self.device_name:
                         dev_index = i
-                        print("Using dev index %d" % dev_index)
 
                 if dev_index is None:
                     print("Could not find device \"%s\". Using default instead." % self.device_name)
@@ -221,7 +236,7 @@ class InputStream(threading.Thread):
                 else:
                     time.sleep(0.1)
 
-            file_path = os.path.join('segments', '%s_%d.flac' % (self.prefix,seg_no % self.max_segments))
+            file_path = os.path.join('segments', '%s_%d.%s' % (self.prefix,seg_no % self.max_segments, ftype))
             duration = len(blob.data) / (blob.rate * blob.width * blob.channels)
             self.update_segments(file_path, duration, seg_no)
             blob.to_file(file_path)

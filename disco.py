@@ -1,11 +1,17 @@
 import threading
 import pyaudio
+import signal
+import platform
+import sys
 import os
-import pulsectl
 import time
 
 import stream
 from flask_app import run_flask, shutdown_app, audio_streams
+
+
+if platform.system() == "Linux":
+    import pulsectl
 
 
 FORMAT = pyaudio.paInt16
@@ -16,20 +22,64 @@ MAX_SEGMENTS = 3
 PORT = 5000
 NO_STREAMS = 2
 
+flask_thread = threading.Thread(target=run_flask)
+loaded_pulse_modules = []
 
-def main():
 
-    loaded_pulse_modules = []
-    if os.name == "posix":
-        device_name = "pulse"
+def sighandler(signum, frame):
+    print("SIGINT received!")
+    shutdown()
+    sys.exit(1)
 
-        # Set up a sink for every stream
+
+def pulse_setup_sinks():
+    modules = []
+    if platform.system() == "Linux":
         with pulsectl.Pulse('PocketDisco') as pulse:
             for i in range(0, NO_STREAMS):
                 index = pulse.module_load("module-null-sink",
                                           "sink_name=PD_Stream%d \
                                            sink_properties=device.description=PocketDisco_Stream%d" % (i, i))
-                loaded_pulse_modules.append(index)
+                modules.append(index)
+    return modules
+
+
+def pulse_remove_sinks(modules):
+    if platform.system() == "Linux":
+        with pulsectl.Pulse('PocketDisco') as pulse:
+            for index in modules:
+                pulse.module_unload(index)
+
+
+def shutdown():
+    global loaded_pulse_modules
+    print('Stopping Web Server')
+    shutdown_app()
+    flask_thread.join()
+
+    print("Stopping Audio Streams")
+    for s in audio_streams:
+        s.running = False
+        s.join()
+    stream.terminate_portaudio()
+    print('Stopped.')
+
+    pulse_remove_sinks(loaded_pulse_modules)
+
+
+def main():
+    global loaded_pulse_modules
+    signal.signal(signal.SIGINT, sighandler)
+
+    if not os.path.isdir('segments'):
+        try:
+            os.makedirs('segments')
+        except OSError as e:
+            print(e)
+
+    loaded_pulse_modules = pulse_setup_sinks()
+    if platform.system() == "Linux":
+        device_name = "pulse"
     else:
         device_name = None
 
@@ -51,29 +101,12 @@ def main():
     #        for c in pulse.client_list():
     #            print(pulse.client_info(c.index))
 
-
-
-    t = threading.Thread(target=run_flask)
-    t.start()
+    flask_thread.start()
 
     input("Press any key to stop.")
+    shutdown()
 
-    print('Stopping Web Server')
-    shutdown_app()
-    t.join()
 
-    print("Stopping Audio Streams")
-    for s in audio_streams:
-        s.running = False
-        s.join()
-    stream.terminate_portaudio()
-    print('Stopped.')
-
-    if os.name == "posix":
-        print("Removing audio sinks...")
-        with pulsectl.Pulse('PocketDisco') as pulse:
-            for index in loaded_pulse_modules:
-                pulse.module_unload(index)
 
 
 if __name__ == '__main__':
