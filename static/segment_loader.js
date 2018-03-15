@@ -91,8 +91,6 @@ onmessage = function (event) {
     if ((event.data[0] === "start") && (is_active === false)) {
         is_active = true;
 
-        context = new (window.AudioContext || window.webkitAudioContext)();
-
         interval = event.data[1];
         console.log("Starting timer. Interval = " + interval);
         timer(); //immediately execute first call
