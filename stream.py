@@ -239,6 +239,7 @@ class InputStream(threading.Thread):
             file_path = os.path.join('segments', '%s_%d.%s' % (self.prefix,seg_no % self.max_segments, ftype))
             duration = len(blob.data) / (blob.rate * blob.width * blob.channels)
             self.update_segments(file_path, duration, seg_no)
+            print(file_path)
             blob.to_file(file_path)
             print('Written segment %d' % seg_no)
             seg_no += 1
