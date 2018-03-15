@@ -97,32 +97,43 @@ function buttonTapped() {
             consIndex = 0;
         }
 
-        let found_first = false;
-        let index;
-        let maxProd = prodIndex; //copy value to account for parallel access
-        for (index = consIndex; index <= maxProd; index++) {
-            let offset = get_offset(segmentBuffer[index]);
-            if (offset === -1) {
-                delete segmentBuffer[index];
-                continue; //Already played
-            } else if (offset === -2) {
-                offset = 0; //Segment upcoming
-            } else {
-                found_first = true;
+        const request = new XMLHttpRequest();
+        request.open("get", "/api/get_current_segment", false);
+        request.responseType = "json";
+        request.onload = function () {
+            let seq_no = request.response.seq_no;
+            let offset = request.offset;
+
+            let found_first = false;
+            let i;
+            let max = prodIndex;
+            for (i = consIndex; i <= max; i++) {
+                let segment = segmentBuffer[i];
+                if (segment.no < seq_no) {
+                    console.log("Seq " + segment.no + " already played.");
+                    delete segmentBuffer[i];
+                }
+                else if (segment.no === seq_no) {
+                    found_first = true;
+                    scheduleSegment(segmentBuffer[i].buffer, offset);
+                    delete segmentBuffer[i];
+                } else if (found_first) {
+                    scheduleSegment(segmentBuffer[i].buffer, 0);
+                    delete segmentBuffer[i];
+                }
+
+                consIndex = i;
             }
 
-            console.log("buttonTapped: scheduling " + segmentBuffer[index].no + " at " + offset);
-
-            scheduleSegment(segmentBuffer[index].buffer, offset);
-            delete segmentBuffer[index];
-            consIndex = index;
-        }
-
-        if (!found_first) {
-            console.warn("All segments in buffer have already been played.");
-        }
-        let btnPlay = document.getElementById("play");
-        btnPlay.disabled = true;
+            if (!found_first) {
+                console.error("Requested segment with no " + seq_no + " no yet buffered.");
+            }
+            else {
+                let btnPlay = document.getElementById("play");
+                btnPlay.disabled = true;
+            }
+        };
+        request.send();
     }
 }
 

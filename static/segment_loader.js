@@ -31,14 +31,11 @@ function timer() {
         }
 
         let i;
-        let prev_durations = ref_time;
-
         let downloaded = 0;
         for (i = 0; i < segments.length; i++) {
             const segment = segments[i];
             const expected = last_seq_no + 1;
 
-            segment.start_time = prev_durations;
             if (segment.no < expected) {
                 //We have already seen this segment:
                 console.info("Already have " + segment.no);
@@ -60,9 +57,7 @@ function timer() {
                     console.info("Download limit reached: processed " + downloaded + " of " + segments.length);
                     break;
                 }
-
             }
-            prev_durations += segments[i].duration;
         }
 
         //re-schedule function:
