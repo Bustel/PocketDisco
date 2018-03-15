@@ -30,11 +30,11 @@ function timer() {
             last_seq_no = segments[0].no - 1;
         }
 
-        let max = (segments.length < download_limit) ? segments.length : download_limit;
-
         let i;
         let prev_durations = ref_time;
-        for (i = 0; i < max; i++) {
+
+        let downloaded = 0;
+        for (i = 0; i < segments.length; i++) {
             const segment = segments[i];
             const expected = last_seq_no + 1;
 
@@ -53,7 +53,14 @@ function timer() {
                 //This is the next expected segment:
                 console.debug("Downloading segment no. " + segment.no);
                 loadSound(segment);
+                downloaded++;
                 last_seq_no = segment.no;
+
+                if (downloaded === max) {
+                    console.info("Download limit reached: processed " + downloaded + " of " + segments.length);
+                    break;
+                }
+
             }
             prev_durations += segments[i].duration;
         }
