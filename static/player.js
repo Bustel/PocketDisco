@@ -89,6 +89,14 @@ function buttonTapped() {
     }
 
     if (isStopped) {
+        if (prodIndex === -1) {
+            return; //should not happen: should be disabled in that case
+        }
+
+        if (consIndex === -1) {
+            consIndex = 0;
+        }
+
         let found_first = false;
         let index;
         let maxProd = prodIndex; //copy value to account for parallel access

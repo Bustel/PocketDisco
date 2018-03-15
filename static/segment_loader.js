@@ -38,6 +38,7 @@ function timer() {
             const segment = segments[i];
             const expected = last_seq_no + 1;
 
+            segment.start_time = prev_durations;
             if (segment.no < expected) {
                 //We have already seen this segment:
                 console.info("Already have " + segment.no);
@@ -58,7 +59,7 @@ function timer() {
         }
 
         //re-schedule function:
-        timeout_handle = setTimeout(timer(), interval);
+        timeout_handle = setTimeout(timer, interval);
     };
     request.send();
 }
