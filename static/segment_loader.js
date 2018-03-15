@@ -56,7 +56,7 @@ function timer() {
                 downloaded++;
                 last_seq_no = segment.no;
 
-                if (downloaded === max) {
+                if (downloaded === download_limit) {
                     console.info("Download limit reached: processed " + downloaded + " of " + segments.length);
                     break;
                 }
