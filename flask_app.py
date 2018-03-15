@@ -28,7 +28,7 @@ def index():
     return render_template('index.html')
 
 
-@app.route('/api/time_sync', methods=['POST'])
+@app.route('/api/timesync', methods=['POST'])
 def time_sync():
     js = request.get_json()
     time_utc = js['local_time']
@@ -41,6 +41,8 @@ def time_sync():
         'offset': offset
     }
 
+    print('server_time', my_time)
+    print('local_time', time_utc)
     print('Offset', offset)
 
     return jsonify(resp)
