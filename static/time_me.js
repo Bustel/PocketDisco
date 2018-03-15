@@ -1,5 +1,9 @@
+let myContext;
+
 function time() {
-    let time = {"local_time": new Date().getTime()};
+    let time = {};
+    time.js_time = new Date().getTime();
+    time.audio_time = myContext.currentTime;
 
     const request = new XMLHttpRequest();
     request.open("post", "/api/timesync", true);
@@ -19,6 +23,7 @@ function time() {
 }
 
 window.onload = function () {
+    myContext = new (window.AudioContext || window.webkitAudioContext)();
     setInterval(time, 1000);
 };
 
