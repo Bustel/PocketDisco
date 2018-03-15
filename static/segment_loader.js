@@ -1,14 +1,19 @@
-let timer_var = null;
 let last_seq_no = -1;   //Index of last segment downloaded
+
+let is_active = false;
+let timeout_handle = null;
+let interval;
 
 const download_limit = 3;
 
 function timer() {
+    console.log("Timer elapsed");
+    timeout_handle = null;
+
     const request = new XMLHttpRequest();
     request.open("get", "/api/get_tracks", true);
     request.responseType = "json";
     request.onload = function () {
-        console.log("Timer elapsed");
 
         const ref_time = request.response.reference;
         const segments = request.response.segments;
@@ -25,15 +30,12 @@ function timer() {
             last_seq_no = segments[0].no - 1;
         }
 
-
         let max = (segments.length < download_limit) ? segments.length : download_limit;
 
         let i;
         let prev_durations = ref_time;
         for (i = 0; i < max; i++) {
             const segment = segments[i];
-            segment.start_time = prev_durations;
-
             const expected = last_seq_no + 1;
 
             if (segment.no < expected) {
@@ -41,31 +43,26 @@ function timer() {
                 console.info("Already have " + segment.no);
             } else if (segment.no > expected) {
                 //There was a gap: stop everything
-                console.info("Gap detected: expected " + expected + ", but got " + segment.no);
+                console.warn("Gap detected: expected " + expected + ", but got " + segment.no);
                 last_seq_no = -1;
-                stopTimer();
-
                 postMessage(["gap"]);
-                break;
+                stopTimer();
+                return;
             } else if (segment.no === expected) {
                 //This is the next expected segment:
                 console.debug("Downloading segment no. " + segment.no);
                 loadSound(segment);
                 last_seq_no = segment.no;
             }
-
             prev_durations += segments[i].duration;
         }
+
+        //re-schedule function:
+        timeout_handle = setTimeout(timer(), interval);
     };
     request.send();
 }
 
-function stopTimer() {
-    if (timer_var != null) {
-        clearTimeout(timer_var);
-        timer_var = null;
-    }
-}
 
 function loadSound(segment) {
     const request = new XMLHttpRequest();
@@ -78,19 +75,28 @@ function loadSound(segment) {
     request.send();
 }
 
+function stopTimer() {
+    console.log("Stopping timer.");
+    is_active = false;
+
+    if (timeout_handle != null) {
+        clearTimeout(timeout_handle); //clear pending requests
+    }
+
+    close(); //kill the web worker
+}
+
 onmessage = function (event) {
-    if ((event.data[0] === "start") && (timer_var == null)) {
+    if ((event.data[0] === "start") && (is_active === false)) {
+        is_active = true;
+
+        context = new (window.AudioContext || window.webkitAudioContext)();
+
         interval = event.data[1];
         console.log("Starting timer. Interval = " + interval);
-        timer_var = setInterval(function () {
-            timer()
-        }, interval);
+        timer(); //immediately execute first call
     }
-    if (event.data[0] === "stop") {
-        console.log("Stopping timer.");
-        if (timer_var != null) {
-            stopTimer();
-        }
-        close();
+    if (event.data[0] === "stop" && (is_active === true)) {
+        stopTimer();
     }
 };
