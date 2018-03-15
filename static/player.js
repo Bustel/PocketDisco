@@ -23,7 +23,7 @@ function init() {
 
     segmentBuffer = [];
     prodIndex = -1;
-    consIndex = -1;
+    consIndex = 0;
 }
 
 function loadButtonTapped() {
@@ -89,6 +89,11 @@ function buttonTapped() {
     }
 
     if (isStopped) {
+        if (prodIndex === -1) {
+            console.warn("No segments yet.");
+            return;
+        }
+
         let found_first = false;
         let index;
         let maxProd = prodIndex; //copy value to account for parallel access
