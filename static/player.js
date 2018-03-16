@@ -94,8 +94,6 @@ function buttonTapped() {
             let seq_no = resp_obj.seg_no;
             let offset = resp_obj.offset;
 
-            scheduleSegment(segment_buffer[0].buffer, 0);
-
             console.log("Attempting to start playback for segment " + seq_no + " at offset " + offset);
 
             let found_first = false;
@@ -123,7 +121,7 @@ function buttonTapped() {
             }
 
             if (!found_first) {
-                console.error("Requested segment with no " + seq_no + " no yet buffered.");
+                console.error("Requested segment with no " + seq_no + " not yet buffered.");
             }
             else {
                 let btnPlay = document.getElementById("play");
