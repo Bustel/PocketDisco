@@ -46,33 +46,40 @@ def pulse_setup_sinks():
 def pulse_attach_streams():
     # This is a workaround for the lack of all bindings in source_output_list()
     if platform.system() == "Linux":
-        output = subprocess.getoutput('pacmd list-source-outputs')
+        cmd_out = subprocess.getoutput('pacmd list-source-outputs')
         index = -1
         output_lst = []
         pid = os.getpid()
 
-        for line in output.split('\n'):
+        for line in cmd_out.split('\n'):
             line = line.strip()
             if line.startswith('index: '):
                 index = int(line.split('index: ')[1])
             elif line.startswith('application.process.id = "') and index != -1:
                 client_pid = int(line.split('application.process.id = "')[1].strip('"'))
                 if client_pid == pid:
-                    output_lst.append(index)
+                    output_lst.append(index)  #
+
+        # Make source outputs more distinguishable for the user
+        for i, output in enumerate(output_lst):
+            media_name = 'PocketDiscoCaptureStream%d' % i
+            cmd = 'pacmd update-source-output-proplist %d media.name="%s"' % (output, media_name)
+            subprocess.getstatusoutput(cmd)
 
         with pulsectl.Pulse('PocketDisco') as pulse:
             our_sources = list(filter(lambda x: x.name.startswith('PD_Stream'),
-                                    sorted(pulse.source_list(), key=lambda x: x.index)))
+                                      sorted(pulse.source_list(), key=lambda x: x.index)))
 
             if len(our_sources) != len(output_lst):
                 print('Sources and sinks do not match. Check for zombie modules')
                 return
 
-            for output, source in zip(output_lst, our_sources):
+            for cmd_out, source in zip(output_lst, our_sources):
                 try:
-                    pulse.source_output_move(output, source.index)
+                    pulse.source_output_move(cmd_out, source.index)
                 except pulsectl.PulseOperationFailed:
-                    print('Failed to move output %d to source %d' % (output, source.name))
+                    print('Failed to move output %d to source %d' % (cmd_out, source.name))
+
 
 def pulse_remove_sinks(modules):
     if platform.system() == "Linux":
