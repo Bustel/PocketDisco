@@ -64,7 +64,7 @@ function processNewSegment(segment) {
             //Store segment for later playback:
             segment.buffer = buffer;
 
-            let index = segment_buffer_insert_index % (max_buffered_items - 1);
+            let index = segment_buffer_insert_index % max_buffered_items;
             segment_buffer[index] = segment;
             segment_buffer_insert_index++;
 
@@ -106,7 +106,7 @@ function buttonTapped() {
 
             let i;
             for (i = min; i < max; i++) {
-                let index = i % (max_buffered_items - 1);
+                let index = i % max_buffered_items;
 
                 let segment = segment_buffer[index];
                 if (segment.no < seq_no) {
@@ -114,10 +114,14 @@ function buttonTapped() {
                 }
                 else if (segment.no === seq_no) {
                     found_first = true;
+                    console.log("Segment found. Scheduling for playback.");
                     scheduleSegment(segment_buffer[index].buffer, offset);
-                } else if (found_first) {
-                    scheduleSegment(segment_buffer[index].buffer, 0);
-                }
+                } else if (segment.no > seq_no)
+                    if (!found_first) {
+                        console.log("Seq " + segment.no + " for future play (not found first yet).");
+                    } else {
+                        scheduleSegment(segment_buffer[index].buffer, 0);
+                    }
             }
 
             if (!found_first) {
@@ -127,7 +131,8 @@ function buttonTapped() {
                 let btnPlay = document.getElementById("play");
                 btnPlay.disabled = true;
             }
-        };
+        }
+        ;
         request.send();
     }
 }
