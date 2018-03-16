@@ -81,7 +81,7 @@ class PCMBlob(audiotools.PCMReader):
         self.data = bytearray()
         self.channels = channels
 
-        bits = sample_width*8
+        bits = sample_width * 8
         super().__init__(sample_rate=rate, channels=channels, bits_per_sample=bits, channel_mask=mask)
 
     def fill(self, chunk):
@@ -105,18 +105,18 @@ class PCMBlob(audiotools.PCMReader):
         bigEndian = False
         isSigned = True
         if len(self.data) == 0:
-            return audiotools.pcm.FrameList(b"", self.channels, self.width*8, bigEndian, isSigned)
+            return audiotools.pcm.FrameList(b"", self.channels, self.width * 8, bigEndian, isSigned)
 
         requested_len = pcm_frames * self.width * self.channels
 
         if requested_len >= len(self.data):
             frames = audiotools.pcm.FrameList(bytes(self.data),
-                                              self.channels, self.width*8, bigEndian, isSigned)
+                                              self.channels, self.width * 8, bigEndian, isSigned)
             del self.data[:]
             return frames
         else:
             frames = audiotools.pcm.FrameList(bytes(self.data[:requested_len]),
-                                              self.channels, self.width*8, bigEndian, isSigned)
+                                              self.channels, self.width * 8, bigEndian, isSigned)
             del self.data[:requested_len]
             return frames
 
@@ -129,14 +129,15 @@ def terminate_portaudio():
 
 
 class InputStream(threading.Thread):
-    def __init__(self, channels, segment_duration, sampling_rate, format, max_segments, prefix, device_name = None):
+    def __init__(self, channels, segment_duration, sampling_rate, sample_format, max_segments, prefix,
+                 device_name=None):
         super().__init__()
 
         self.device_name = device_name
         self.channels = channels
         self.segment_duration = segment_duration
         self.sampling_rate = sampling_rate
-        self.format = format
+        self.format = sample_format
         self.max_segments = max_segments
         self.prefix = prefix
 
@@ -168,9 +169,9 @@ class InputStream(threading.Thread):
             self.segments.append(segment)
 
     def __callback(self, in_data,  # recorded data if input=True; else None
-                 frame_count,  # number of frames
-                 time_info,  # dictionary
-                 status_flags):  # PaCallbackFlags
+                   frame_count,  # number of frames
+                   time_info,  # dictionary
+                   status_flags):  # PaCallbackFlags
 
         n = self.buffer.write_chunk(in_data, len(in_data))
         self.dropped_samples += frame_count - (n / (self.channels * pyaudio.get_sample_size(self.format)))
@@ -197,12 +198,12 @@ class InputStream(threading.Thread):
                     print("Could not find device \"%s\". Using default instead." % self.device_name)
 
             stream = glPortAudio.open(format=pyaudio.paInt16,
-                            channels=self.channels,
-                            input_device_index=dev_index,
-                            rate=self.sampling_rate,
-                            input=True,
-                            stream_callback=self.__callback,
-                            start=False)
+                                      channels=self.channels,
+                                      input_device_index=dev_index,
+                                      rate=self.sampling_rate,
+                                      input=True,
+                                      stream_callback=self.__callback,
+                                      start=False)
 
         print('Start recording...')
         stream.start_stream()
@@ -236,15 +237,12 @@ class InputStream(threading.Thread):
                 else:
                     time.sleep(0.1)
 
-            file_path = os.path.join('segments', '%s_%d.%s' % (self.prefix,seg_no % self.max_segments, ftype))
+            file_path = os.path.join('segments', '%s_%d.%s' % (self.prefix, seg_no % self.max_segments, ftype))
             duration = len(blob.data) / (blob.rate * blob.width * blob.channels)
             self.update_segments(file_path, duration, seg_no)
-            #print(file_path)
             blob.to_file(file_path)
-            #print('Written segment %d' % seg_no)
             seg_no += 1
 
         stream.stop_stream()
         stream.close()
         print('Stopped recording. Written %d segments.' % seg_no)
-
