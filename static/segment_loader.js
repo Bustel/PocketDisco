@@ -4,18 +4,12 @@ let is_active = false;
 let timeout_handle = null;
 let interval;
 
-const download_limit = 3;
-
-function timer() {
-    console.log("Timer elapsed");
-    timeout_handle = null;
-
+function loadSegments(max_segments) {
     const request = new XMLHttpRequest();
     request.open("get", "/api/get_tracks", true);
     request.responseType = "json";
     request.onload = function () {
 
-        const ref_time = request.response.reference;
         const segments = request.response.segments;
 
         if (segments.length === 0) {
@@ -53,8 +47,8 @@ function timer() {
                 downloaded++;
                 last_seq_no = segment.no;
 
-                if (downloaded === download_limit) {
-                    console.info("Download limit reached: processed " + downloaded + " of " + segments.length);
+                if ((downloaded === max_segments) && (i < segments.length - 1)) {
+                    console.warn("Max. number of segments reached. Ignoring remaining segments.");
                     break;
                 }
             }
@@ -64,6 +58,14 @@ function timer() {
         timeout_handle = setTimeout(timer, interval);
     };
     request.send();
+}
+
+function timer() {
+    console.log("Timer elapsed");
+    timeout_handle = null;
+
+    //Ask main script for number of segments we can download:
+    postMessage(["get_capacity"]);
 }
 
 
@@ -99,5 +101,9 @@ onmessage = function (event) {
     }
     if (event.data[0] === "stop" && (is_active === true)) {
         stopTimer();
+    }
+    if (event.data[0] === "capacity") {
+        max_segments = event.data[1];
+        loadSegments(max_segments);
     }
 };

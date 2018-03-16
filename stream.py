@@ -187,7 +187,7 @@ class InputStream(threading.Thread):
         with glPALock:
             dev_index = None
 
-            if self.device_name is not None:
+            if self.device_name is not None or True:
                 for i in range(0, glPortAudio.get_device_count()):
                     dev_info = glPortAudio.get_device_info_by_index(i)
                     if dev_info['name'] == self.device_name:

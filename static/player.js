@@ -6,9 +6,15 @@ let last_seg_end_time;  //End time of last currently scheduled segment (offset f
 let isPlaying;
 let isStopped;
 
-let segmentBuffer;
-let prodIndex; //index of lastly produced item
-let consIndex; //index of lastly consumed item
+let segment_buffer;
+let segment_buffer_insert_index;
+
+let scheduled_item_count; //number of scheduled items (including item currently being played)
+
+const max_scheduled_items = 5;
+const max_buffered_items = 5; //max. number of items to be stored locally. has to be equal to, or smaller than number of scheduled items.
+
+const segment_list_check_interval = 3000;
 
 window.onload = init;
 
@@ -21,21 +27,26 @@ function init() {
     isPlaying = false;
     isStopped = true;
 
-    segmentBuffer = [];
-    prodIndex = -1;
-    consIndex = -1;
+    segment_buffer = [];
+    segment_buffer_insert_index = 0;
+
+    scheduled_item_count = 0;
 }
 
 function loadButtonTapped() {
     //Start downloader:
     let http_worker = new Worker('/static/segment_loader.js');
-    http_worker.postMessage(["start", 3000]);
+    http_worker.postMessage(["start", segment_list_check_interval]);
     http_worker.onmessage = function (e) {
         if (e.data[0] === "segment") {
             processNewSegment(e.data[1]);
         }
         if (e.data[0] === "gap") {
             //TODO
+        }
+        if (e.data[0] === "get_capacity") {
+            let capacity = isPlaying ? (max_scheduled_items - scheduled_item_count) : max_buffered_items;
+            http_worker.postMessage(["capacity", capacity]);
         }
     };
 
@@ -53,8 +64,9 @@ function processNewSegment(segment) {
             //Store segment for later playback:
             segment.buffer = buffer;
 
-            prodIndex++;
-            segmentBuffer[prodIndex] = segment;
+            let index = segment_buffer_insert_index % (max_buffered_items - 1);
+            segment_buffer[index] = segment;
+            segment_buffer_insert_index++;
 
             let btnPlay = document.getElementById("play");
             btnPlay.disabled = false;
@@ -63,62 +75,51 @@ function processNewSegment(segment) {
 
 }
 
-function get_offset(segment) {
-    let seg_end_time = segment.start_time + segment.duration;
-    let now = (new Date()).getTime() / 1000; //need seconds
-
-    console.log("get_offset: segment " + segment.no + " from " + segment.start_time + " to " + seg_end_time);
-
-    if (now < segment.start_time) {
-        return -2;
-    }
-    if (now >= seg_end_time) {
-        return -1;
-    }
-
-    return now - segment.start_time;
-}
-
 function buttonTapped() {
     if (isPlaying) {
         return;
     }
 
     if (isStopped) {
-        if (prodIndex === -1) {
-            return; //should not happen: should be disabled in that case
-        }
-
-        if (consIndex === -1) {
-            consIndex = 0;
+        if (segment_buffer.length === 0) {
+            console.log("Cannot start playback: empty buffer.");
+            return;
         }
 
         const request = new XMLHttpRequest();
-        request.open("get", "/api/get_current_segment", true);
-        request.responseType = "json";
+        request.open("get", "/api/get_current_segment", false);
         request.onload = function () {
-            let seq_no = request.response.seg_no;
-            let offset = request.offset;
+            let resp_obj = JSON.parse(request.response);
+
+            let seq_no = resp_obj.seg_no;
+            let offset = resp_obj.offset;
+
+            scheduleSegment(segment_buffer[0].buffer, 0);
+
+            console.log("Attempting to start playback for segment " + seq_no + " at offset " + offset);
 
             let found_first = false;
+
+            let max = segment_buffer_insert_index;
+            let min = segment_buffer_insert_index - (max_buffered_items - 1);
+            if (min < 0) {
+                min = 0;
+            }
+
             let i;
-            let max = prodIndex;
-            for (i = consIndex; i <= max; i++) {
-                let segment = segmentBuffer[i];
+            for (i = min; i < max; i++) {
+                let index = i % (max_buffered_items - 1);
+
+                let segment = segment_buffer[index];
                 if (segment.no < seq_no) {
                     console.log("Seq " + segment.no + " already played.");
-                    delete segmentBuffer[i];
                 }
                 else if (segment.no === seq_no) {
                     found_first = true;
-                    scheduleSegment(segmentBuffer[i].buffer, offset);
-                    delete segmentBuffer[i];
+                    scheduleSegment(segment_buffer[index].buffer, offset);
                 } else if (found_first) {
-                    scheduleSegment(segmentBuffer[i].buffer, 0);
-                    delete segmentBuffer[i];
+                    scheduleSegment(segment_buffer[index].buffer, 0);
                 }
-
-                consIndex = i;
             }
 
             if (!found_first) {
@@ -153,10 +154,15 @@ function scheduleSegment(buffer, offset) {
 
     //Prepare playback:
     let source = context.createBufferSource();
+    source.onended = function (ev) {
+        scheduled_item_count--;
+    };
     source.buffer = buffer;
     source.connect(context.destination);
     source.start(start_time, offset);
 
     last_seg_end_time += buffer.duration - offset;
+
+    scheduled_item_count++;
 }
 
