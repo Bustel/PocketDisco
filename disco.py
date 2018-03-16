@@ -5,14 +5,13 @@ import platform
 import sys
 import os
 import time
+import subprocess
 
 import stream
 from flask_app import run_flask, shutdown_app, audio_streams
 
-
 if platform.system() == "Linux":
     import pulsectl
-
 
 FORMAT = pyaudio.paInt16
 RATE = 44100
@@ -44,6 +43,44 @@ def pulse_setup_sinks():
     return modules
 
 
+def pulse_attach_streams():
+    # This is a workaround for the lack of all bindings in source_output_list()
+    if platform.system() == "Linux":
+        cmd_out = subprocess.getoutput('pacmd list-source-outputs')
+        index = -1
+        output_lst = []
+        pid = os.getpid()
+
+        for line in cmd_out.split('\n'):
+            line = line.strip()
+            if line.startswith('index: '):
+                index = int(line.split('index: ')[1])
+            elif line.startswith('application.process.id = "') and index != -1:
+                client_pid = int(line.split('application.process.id = "')[1].strip('"'))
+                if client_pid == pid:
+                    output_lst.append(index)  #
+
+        # Make source outputs more distinguishable for the user
+        for i, output in enumerate(output_lst):
+            media_name = 'PocketDiscoCaptureStream%d' % i
+            cmd = 'pacmd update-source-output-proplist %d media.name="%s"' % (output, media_name)
+            subprocess.getstatusoutput(cmd)
+
+        with pulsectl.Pulse('PocketDisco') as pulse:
+            our_sources = list(filter(lambda x: x.name.startswith('PD_Stream'),
+                                      sorted(pulse.source_list(), key=lambda x: x.index)))
+
+            if len(our_sources) != len(output_lst):
+                print('Sources and sinks do not match. Check for zombie modules')
+                return
+
+            for cmd_out, source in zip(output_lst, our_sources):
+                try:
+                    pulse.source_output_move(cmd_out, source.index)
+                except pulsectl.PulseOperationFailed:
+                    print('Failed to move output %d to source %d' % (cmd_out, source.name))
+
+
 def pulse_remove_sinks(modules):
     if platform.system() == "Linux":
         with pulsectl.Pulse('PocketDisco') as pulse:
@@ -53,14 +90,19 @@ def pulse_remove_sinks(modules):
 
 def shutdown():
     global loaded_pulse_modules
-    print('Stopping Web Server')
-    shutdown_app()
-    flask_thread.join()
+
+    if flask_thread.is_alive():
+        print('Stopping Web Server')
+        shutdown_app()
+        flask_thread.join()
+    else:
+        print('Web Server already down.')
 
     print("Stopping Audio Streams")
     for s in audio_streams:
-        s.running = False
-        s.join()
+        if s.is_alive():
+            s.running = False
+            s.join()
     stream.terminate_portaudio()
     print('Stopped.')
 
@@ -71,7 +113,7 @@ def main():
     global loaded_pulse_modules
     signal.signal(signal.SIGINT, sighandler)
 
-    if (platform.system() == 'Windows'):
+    if platform.system() == 'Windows':
         os.chdir(os.path.dirname(sys.argv[0]))
 
     if not os.path.isdir('segments'):
@@ -98,18 +140,15 @@ def main():
         audio_streams.append(s)
         s.start()
 
-    # TODO Find Workaround
-    #time.sleep(2)
-    # Find our streams and attach them to the sinks
-    #if os.name == "posix":
-    #    with pulsectl.Pulse('PocketDisco') as pulse:
-    #        for c in pulse.client_list():
-    #            print(pulse.client_info(c.index))
+    # Sleep is necessary for streams to appear as clients.
+    time.sleep(2)
+    pulse_attach_streams()
 
     flask_thread.start()
 
     input("Press any key to stop.")
     shutdown()
+
 
 if __name__ == '__main__':
     main()
