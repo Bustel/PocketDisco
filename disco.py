@@ -8,8 +8,6 @@ import time
 import subprocess
 import logging
 
-logging.basicConfig(level=logging.DEBUG)
-
 import stream
 from flask_app import run_flask, shutdown_app, audio_streams
 
@@ -19,8 +17,8 @@ if platform.system() == "Linux":
 FORMAT = pyaudio.paInt16
 RATE = 44100
 CHANNELS = 2
-SEGMENT_DURATION = 4
-MAX_SEGMENTS = 6
+SEGMENT_DURATION = 5
+MAX_SEGMENTS = 5
 PORT = 5000
 NO_STREAMS = 2
 
@@ -119,6 +117,7 @@ def shutdown():
 
 
 def main():
+    logging.basicConfig(level=logging.DEBUG)
     log = logging.getLogger(__name__)
     werkzeug_logger = logging.getLogger('werkzeug')
     werkzeug_logger.setLevel(logging.WARNING)

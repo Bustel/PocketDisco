@@ -3,7 +3,7 @@ import time
 import requests
 import logging
 
-from flask import Flask, jsonify, request, abort, send_file, render_template
+from flask import Flask, jsonify, request, abort, render_template, send_from_directory
 
 app = Flask(__name__)
 log = logging.getLogger(__name__)
@@ -111,7 +111,10 @@ def get_current_segment():
 
 @app.route('/segments/<path:segment>')
 def serve_segments(segment):
-    return send_file(os.path.join('segments', segment), cache_timeout=1)
+    log = logging.getLogger(__name__)
+    if not os.path.isfile(os.path.join('segments', segment)):
+        log.error('Requested segment %s does not exist.', segment)
+    return send_from_directory('segments', segment, cache_timeout=1)
 
 
 @app.route('/api/shutdown', methods=['POST'])

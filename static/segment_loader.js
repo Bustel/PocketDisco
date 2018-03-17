@@ -74,8 +74,20 @@ function loadSound(segment) {
     request.open("get", segment.url, false);
     request.responseType = "arraybuffer";
     request.onload = function () {
-        segment.data = request.response;
-        postMessage(["segment", segment]);
+        if (request.status === 200) {
+            segment.data = request.response;
+
+            if (segment.data.byteLength === 0) {
+                console.warn('Trying to pass empty segment data to Decoder')
+            } else {
+                console.log(segment.data.byteLength)
+            }
+
+            postMessage(["segment", segment]);
+        } else {
+            console.log('Segment request failed', request.response)
+        }
+
     };
     request.send();
 }

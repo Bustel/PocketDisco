@@ -11,8 +11,8 @@ let segment_buffer_insert_index;
 
 let scheduled_item_count; //number of scheduled items (including item currently being played)
 
-const max_scheduled_items = 5;
-const max_buffered_items = 5; //max. number of items to be stored locally. has to be equal to, or smaller than number of scheduled items.
+const max_scheduled_items = 8;
+const max_buffered_items = 8; //max. number of items to be stored locally. has to be equal to, or smaller than number of scheduled items.
 
 const segment_list_check_interval = 3000;
 
@@ -56,7 +56,7 @@ function loadButtonTapped() {
 
 function processNewSegment(segment) {
     //Decode segment first:
-    context.decodeAudioData(segment.data, function (buffer) {
+    context.decodeAudioData(segment.data).then(function (buffer) {
         if (isPlaying) {
             console.log("processNewSegment: scheduling seq " + segment.no);
             scheduleSegment(buffer, 0);
@@ -71,8 +71,10 @@ function processNewSegment(segment) {
             let btnPlay = document.getElementById("play");
             btnPlay.disabled = false;
         }
+    }).catch(function (reason) {
+        console.log('Failed to decode audio data', reason);
+        console.log(segment.data);
     });
-
 }
 
 function buttonTapped() {
