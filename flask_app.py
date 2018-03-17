@@ -1,11 +1,13 @@
 import os
 import time
 import requests
-
+import logging
 
 from flask import Flask, jsonify, request, abort, send_file, render_template
 
 app = Flask(__name__)
+log = logging.getLogger(__name__)
+
 
 glRunning = True
 PORT = 5000
@@ -32,12 +34,9 @@ def index():
 def time_sync():
     js = request.get_json()
 
-    #print(js)
     js_time = js['js_time']
     audio_time = js['audio_time'] * 1000
     my_time = time.time()*1000
-
-
 
     offset_js = my_time - js_time
     offset_audio = my_time - audio_time
@@ -50,9 +49,6 @@ def time_sync():
         'offset_audio': offset_audio
     }
 
-    #print('server_time', my_time)
-    #print('local_time', js_time)
-    #print('Offset', offset_js)
     print('audio time', audio_time)
     print('Offset Audio', offset_audio)
 
@@ -65,11 +61,7 @@ def api_endpoint():
     s = audio_streams[0]
 
     with s.segment_lock:
-        if s.reference is None:
-            s.reference = time.time()
-
         tracklist = {
-            'reference': s.reference,
             'segments': s.segments
         }
         return jsonify(tracklist)
@@ -83,9 +75,12 @@ def get_current_segment():
     with s.segment_lock:
         if s.reference is None:
             s.reference = time.time()
+            log.debug('Set reference to %f', s.reference)
 
         prev_dur = s.reference
         local_time = time.time()
+
+        log.debug('local time: %f', local_time)
 
         cur_seg = None
         start_time = None
@@ -93,12 +88,16 @@ def get_current_segment():
             start_time = prev_dur
             end_time = start_time + seg['duration']
 
+            log.debug('Start %f End %f', start_time, end_time)
+
             if start_time <= local_time < end_time:
                 cur_seg = seg
+                log.debug('Found current segment: %s', cur_seg)
                 break
             prev_dur += seg['duration']
 
         if cur_seg is None:
+            log.error('Could not determine current segment. local time: %f, last segment ends %f', local_time, prev_dur)
             abort(500)
 
         offset = local_time - start_time

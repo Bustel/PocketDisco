@@ -6,6 +6,9 @@ import sys
 import os
 import time
 import subprocess
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
 
 import stream
 from flask_app import run_flask, shutdown_app, audio_streams
@@ -26,7 +29,8 @@ loaded_pulse_modules = []
 
 
 def sighandler(signum, frame):
-    print("SIGINT received!")
+    log = logging.getLogger(__name__)
+    log.info("SIGINT received! Shutting down.")
     shutdown()
     sys.exit(1)
 
@@ -45,6 +49,7 @@ def pulse_setup_sinks():
 
 def pulse_attach_streams():
     # This is a workaround for the lack of all bindings in source_output_list()
+    log = logging.getLogger(__name__)
     if platform.system() == "Linux":
         cmd_out = subprocess.getoutput('pacmd list-source-outputs')
         index = -1
@@ -71,45 +76,53 @@ def pulse_attach_streams():
                                       sorted(pulse.source_list(), key=lambda x: x.index)))
 
             if len(our_sources) != len(output_lst):
-                print('Sources and sinks do not match. Check for zombie modules')
+                log.warning('Sources and sinks do not match. Check for zombie modules')
                 return
 
             for cmd_out, source in zip(output_lst, our_sources):
                 try:
                     pulse.source_output_move(cmd_out, source.index)
                 except pulsectl.PulseOperationFailed:
-                    print('Failed to move output %d to source %d' % (cmd_out, source.name))
+                    log.warning('Failed to move output %d to source %d' % (cmd_out, source.name))
 
 
 def pulse_remove_sinks(modules):
     if platform.system() == "Linux":
+        log = logging.getLogger(__name__)
         with pulsectl.Pulse('PocketDisco') as pulse:
             for index in modules:
-                pulse.module_unload(index)
+                try:
+                    pulse.module_unload(index)
+                except pulsectl.PulseOperationFailed:
+                    log.error('Failed to unload pulse modules')
 
 
 def shutdown():
     global loaded_pulse_modules
-
+    log = logging.getLogger(__name__)
     if flask_thread.is_alive():
-        print('Stopping Web Server')
+        log.info('Stopping Web Server')
         shutdown_app()
         flask_thread.join()
     else:
-        print('Web Server already down.')
+        log.info('Web Server already down.')
 
-    print("Stopping Audio Streams")
+    log.info("Stopping Audio Streams")
     for s in audio_streams:
         if s.is_alive():
             s.running = False
             s.join()
     stream.terminate_portaudio()
-    print('Stopped.')
+    log.info('Stopped.')
 
     pulse_remove_sinks(loaded_pulse_modules)
 
 
 def main():
+    log = logging.getLogger(__name__)
+    werkzeug_logger = logging.getLogger('werkzeug')
+    werkzeug_logger.setLevel(logging.WARNING)
+
     global loaded_pulse_modules
     signal.signal(signal.SIGINT, sighandler)
 
@@ -118,11 +131,10 @@ def main():
 
     if not os.path.isdir('segments'):
         try:
-            print(os.getcwd())
-            print('segments folder not found')
+            log.error('segments folder not found (CWD: %s)', os.getcwd())
             os.makedirs('segments')
         except OSError as e:
-            print(e)
+            log.error(e)
 
     loaded_pulse_modules = pulse_setup_sinks()
     if platform.system() == "Linux":
@@ -146,7 +158,7 @@ def main():
 
     flask_thread.start()
 
-    input("Press any key to stop.")
+    input("Press any key to stop.\n")
     shutdown()
 
 

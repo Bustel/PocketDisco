@@ -3,6 +3,7 @@ import threading
 import time
 import os
 import platform
+import logging
 
 if platform.system() == "Linux":
     import audiotools
@@ -141,6 +142,8 @@ class InputStream(threading.Thread):
         self.max_segments = max_segments
         self.prefix = prefix
 
+        self.log = logging.getLogger(self.prefix)
+
         self.buffer = Ringbuffer(16 * channels * segment_duration * sampling_rate)
         self.running = False
 
@@ -161,12 +164,36 @@ class InputStream(threading.Thread):
 
         with self.segment_lock:
             if len(self.segments) >= self.max_segments:
-                old_seg = self.segments.pop(0)
 
                 if self.reference is not None:
-                    self.reference += old_seg['duration']
+                    old_segments = []
+                    prev_dur = self.reference
+                    for s in self.segments:
+                        end_time = prev_dur + s['duration']
+                        if end_time < time.time():
+                            old_segments.append(s)
+                            prev_dur += s['duration']
+                        else:
+                            break
+
+                    for s in old_segments:
+                        self.reference += s['duration']
+                        self.remove_segment(s)
+
+                else:
+                    old_seg = self.segments[0]
+                    self.remove_segment(old_seg)
 
             self.segments.append(segment)
+
+    def remove_segment(self, s):
+        self.log.debug('Removing segment %s', s['url'])
+
+        self.segments.remove(s)
+        try:
+            os.remove(s['url'].lstrip('/'))
+        except OSError as e:
+            self.log.warning('Failed to remove segment: %s', e)
 
     def __callback(self, in_data,  # recorded data if input=True; else None
                    frame_count,  # number of frames
@@ -195,7 +222,7 @@ class InputStream(threading.Thread):
                         dev_index = i
 
                 if dev_index is None:
-                    print("Could not find device \"%s\". Using default instead." % self.device_name)
+                    self.log.warning("Could not find device \"%s\". Using default instead.", self.device_name)
 
             stream = glPortAudio.open(format=pyaudio.paInt16,
                                       channels=self.channels,
@@ -205,7 +232,7 @@ class InputStream(threading.Thread):
                                       stream_callback=self.__callback,
                                       start=False)
 
-        print('Start recording...')
+        self.log.info('Start recording...')
         stream.start_stream()
 
         seg_no = 0
@@ -237,12 +264,18 @@ class InputStream(threading.Thread):
                 else:
                     time.sleep(0.1)
 
-            file_path = os.path.join('segments', '%s_%d.%s' % (self.prefix, seg_no % self.max_segments, ftype))
+            file_path = os.path.join('segments', '%s_%d.%s' % (self.prefix, seg_no, ftype))
             duration = len(blob.data) / (blob.rate * blob.width * blob.channels)
             self.update_segments(file_path, duration, seg_no)
             blob.to_file(file_path)
+            self.log.debug('Written segment %d', seg_no)
+
             seg_no += 1
 
         stream.stop_stream()
         stream.close()
-        print('Stopped recording. Written %d segments.' % seg_no)
+        self.log.info('Stopped recording. Written %d segments.', seg_no)
+        self.log.info('Cleaning up segments')
+
+        for i in range(0, len(self.segments)):
+            self.remove_segment(self.segments[0])
