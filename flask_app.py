@@ -8,7 +8,6 @@ from flask import Flask, jsonify, request, abort, render_template, send_from_dir
 app = Flask(__name__)
 log = logging.getLogger(__name__)
 
-
 glRunning = True
 PORT = 5000
 
@@ -36,7 +35,7 @@ def time_sync():
 
     js_time = js['js_time']
     audio_time = js['audio_time'] * 1000
-    my_time = time.time()*1000
+    my_time = time.time() * 1000
 
     offset_js = my_time - js_time
     offset_audio = my_time - audio_time
@@ -112,8 +111,17 @@ def get_current_segment():
 @app.route('/segments/<path:segment>')
 def serve_segments(segment):
     log = logging.getLogger(__name__)
-    if not os.path.isfile(os.path.join('segments', segment)):
+
+    location = os.path.join('segments', segment)
+    if not os.path.isfile(location):
         log.error('Requested segment %s does not exist.', segment)
+    else:
+        data = ''
+        with open(location, 'rb') as file:
+            data = str(file.read(4))
+
+        log.debug('Requested segment file at ' + location + ' [preamble=' + data + ']')
+
     return send_from_directory('segments', segment, cache_timeout=1)
 
 

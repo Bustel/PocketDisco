@@ -20,7 +20,7 @@ CHANNELS = 2
 SEGMENT_DURATION = 5
 MAX_SEGMENTS = 5
 PORT = 5000
-NO_STREAMS = 2
+NO_STREAMS = 1
 
 flask_thread = threading.Thread(target=run_flask)
 loaded_pulse_modules = []
