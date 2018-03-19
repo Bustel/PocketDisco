@@ -97,10 +97,10 @@ function buttonTapped() {
             let playback_offset = resp_obj.offset;
             let client_request_time = resp_obj.request_time;
 
-            let client_time_offset = new Date().getTime() - client_request_time;
+            let client_time_offset = (new Date().getTime() - client_request_time) / 1000;
             playback_offset += client_time_offset / 2;
 
-            console.log("Request took " + client_time_offset + " ms.");
+            console.log("Request took " + client_time_offset + " s.");
             console.log("Attempting to start playback for segment " + seq_no + " at offset " + playback_offset);
 
             let found_first = false;
