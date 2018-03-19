@@ -56,7 +56,7 @@ function loadButtonTapped() {
 
 function processNewSegment(segment) {
     //Decode segment first:
-    context.decodeAudioData(segment.data).then(function (buffer) {
+    context.decodeAudioData(segment.data, function (buffer) {
         if (isPlaying) {
             console.log("processNewSegment: scheduling seq " + segment.no);
             scheduleSegment(buffer, 0);
@@ -71,8 +71,8 @@ function processNewSegment(segment) {
             let btnPlay = document.getElementById("play");
             btnPlay.disabled = false;
         }
-    }).catch(function (reason) {
-        console.log('Failed to decode audio data', reason);
+    }, function (e) {
+        console.log('Failed to decode audio data', e);
         console.log(segment.data);
     });
 }
