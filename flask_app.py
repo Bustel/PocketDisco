@@ -66,8 +66,11 @@ def api_endpoint():
         return jsonify(tracklist)
 
 
-@app.route('/api/get_current_segment')
+@app.route('/api/get_current_segment', methods=['POST'])
 def get_current_segment():
+    js = request.get_json()
+    request_time = js['request_time']
+
     global audio_streams
     s = audio_streams[0]
 
@@ -102,7 +105,8 @@ def get_current_segment():
         offset = local_time - start_time
         resp = {
             "offset": offset,
-            "seg_no": cur_seg['no']
+            "seg_no": cur_seg['no'],
+            "request_time": request_time
         }
 
         return jsonify(resp)

@@ -89,14 +89,19 @@ function buttonTapped() {
         }
 
         const request = new XMLHttpRequest();
-        request.open("get", "/api/get_current_segment", false);
+        request.open("post", "/api/get_current_segment", false);
         request.onload = function () {
             let resp_obj = JSON.parse(request.response);
 
             let seq_no = resp_obj.seg_no;
-            let offset = resp_obj.offset;
+            let playback_offset = resp_obj.offset;
+            let client_request_time = resp_obj.request_time;
 
-            console.log("Attempting to start playback for segment " + seq_no + " at offset " + offset);
+            let client_time_offset = new Date().getTime() - client_request_time;
+            playback_offset += client_time_offset / 2;
+
+            console.log("Request took " + client_time_offset + " ms.");
+            console.log("Attempting to start playback for segment " + seq_no + " at offset " + playback_offset);
 
             let found_first = false;
 
@@ -117,7 +122,7 @@ function buttonTapped() {
                 else if (segment.no === seq_no) {
                     found_first = true;
                     console.log("Segment found. Scheduling for playback.");
-                    scheduleSegment(segment_buffer[index].buffer, offset);
+                    scheduleSegment(segment_buffer[index].buffer, playback_offset);
                 } else if (segment.no > seq_no)
                     if (!found_first) {
                         console.log("Seq " + segment.no + " for future play (not found first yet).");
@@ -133,9 +138,12 @@ function buttonTapped() {
                 let btnPlay = document.getElementById("play");
                 btnPlay.disabled = true;
             }
-        }
-        ;
-        request.send();
+        };
+        //Add content:
+        let time = {};
+        time.request_time = new Date().getTime();
+        request.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+        request.send(JSON.stringify(time));
     }
 }
 
