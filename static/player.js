@@ -113,6 +113,10 @@ function buttonTapped() {
             let client_time_offset = (new Date().getTime() - client_request_time) / 1000;
             playback_offset += client_time_offset / 2;
 
+            //Debugging:
+            let divOffset = document.getElementById("offsetDiv");
+            divOffset.innerHTML = "Offset: " + playback_offset * 1000 + "ms <br/>";
+
             log("Request took " + client_time_offset + " s. Using additional offset of " + playback_offset);
             log("Attempting to start playback for segment " + seq_no + " at offset " + playback_offset);
 
