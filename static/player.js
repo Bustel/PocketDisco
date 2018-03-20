@@ -108,16 +108,19 @@ function buttonTapped() {
 
             let seq_no = resp_obj.seg_no;
             let playback_offset = resp_obj.offset;
-            let client_request_time = resp_obj.request_time;
 
-            let client_time_offset = (new Date().getTime() - client_request_time) / 1000;
-            playback_offset += client_time_offset / 2;
+            let js_offset = (new Date().getTime() / 1000 - resp_obj.js_time);
+            let audio_offset = context.currentTime - resp_obj.audio_time;
 
             //Debugging:
             let divOffset = document.getElementById("offsetDiv");
-            divOffset.innerHTML = "Offset: " + client_time_offset * 1000 + "ms <br/>";
+            divOffset.innerHTML = "Audio offset: " + audio_offset + " s. JS offset: " + js_offset + "s. <br/>";
 
-            log("Request took " + client_time_offset + " s. Using additional offset of " + client_time_offset / 2 + "s");
+            let client_offset = (audio_offset > 0) ? audio_offset : js_offset;
+            client_offset /= 2;
+            playback_offset += client_offset;
+
+            log("Request took " + client_offset + " s.");
             log("Attempting to start playback for segment " + seq_no + " at offset " + playback_offset);
 
             let found_first = false;
@@ -137,9 +140,16 @@ function buttonTapped() {
                     log("Seq " + segment.no + " already played.");
                 }
                 else if (segment.no === seq_no) {
-                    found_first = true;
-                    log("Segment found. Scheduling for playback.");
-                    scheduleSegment(segment_buffer[index].buffer, playback_offset);
+                    if (playback_offset >= segment.buffer.duration) {
+                        warn("Playback offset exceeds segment length. Proceeding to next segment.");
+                        seq_no++;
+                        playback_offset -= segment.buffer.duration;
+                    }
+                    else {
+                        found_first = true;
+                        log("Segment found. Scheduling for playback.");
+                        scheduleSegment(segment_buffer[index].buffer, playback_offset);
+                    }
                 } else if (segment.no > seq_no)
                     if (!found_first) {
                         log("Seq " + segment.no + " for future play (not found first yet).");
@@ -158,7 +168,8 @@ function buttonTapped() {
         };
         //Add content:
         let time = {};
-        time.request_time = new Date().getTime();
+        time.audio_time = context.currentTime;
+        time.js_time = new Date().getTime() / 1000;
         request.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
         request.send(JSON.stringify(time));
     }
