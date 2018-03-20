@@ -29,36 +29,29 @@ def index():
     return render_template('index.html')
 
 
-@app.route('/api/timesync', methods=['POST'])
-def time_sync():
-    js = request.get_json()
-
-    js_time = js['js_time']
-    audio_time = js['audio_time'] * 1000
-    my_time = time.time() * 1000
-
-    offset_js = my_time - js_time
-    offset_audio = my_time - audio_time
-
-    resp = {
-        'local_time': js_time,
-        'local_time_audio': audio_time,
-        'server_time': my_time,
-        'offset': offset_js,
-        'offset_audio': offset_audio
-    }
-
-    print('audio time', audio_time)
-    print('Offset Audio', offset_audio)
-
-    return jsonify(resp)
-
-
-@app.route('/api/get_tracks')
-def api_endpoint():
+@app.route('/api/streams')
+def get_streams():
     global audio_streams
-    s = audio_streams[0]
+    stream_dic = {}
+    stream_lst = []
+    for i in range(0, len(audio_streams)):
+        s = audio_streams[i]
+        stream_lst.append({
+            'name': s.name,
+            'no': i
+        })
 
+    stream_dic['streams'] = stream_lst
+    return jsonify(stream_dic)
+
+
+@app.route('/api/streams/<int:stream_id>/get_tracks')
+def stream_get_tracks(stream_id):
+    global audio_streams
+    if stream_id > len(audio_streams):
+        abort(404)
+
+    s = audio_streams[stream_id]
     with s.segment_lock:
         tracklist = {
             'segments': s.segments
@@ -66,13 +59,12 @@ def api_endpoint():
         return jsonify(tracklist)
 
 
-@app.route('/api/get_current_segment', methods=['POST'])
-def get_current_segment():
+@app.route('/api/streams/<int:stream_id>/get_current_segment', methods=['POST'])
+def stream_get_current_segment(stream_id):
     js = request.get_json()
-    request_time = js['request_time']
 
     global audio_streams
-    s = audio_streams[0]
+    s = audio_streams[stream_id]
 
     with s.segment_lock:
         if s.reference is None:
@@ -103,28 +95,28 @@ def get_current_segment():
             abort(500)
 
         offset = local_time - start_time
-        resp = {
-            "offset": offset,
-            "seg_no": cur_seg['no'],
-            "request_time": request_time
-        }
 
-        return jsonify(resp)
+        js['offset'] = offset
+        js['seg_no'] = cur_seg['no']
+
+        return jsonify(js)
+
+
+@app.route('/api/get_tracks')
+def api_endpoint():
+    return stream_get_tracks(0)
+
+
+@app.route('/api/get_current_segment', methods=['POST'])
+def get_current_segment():
+    return stream_get_current_segment(0)
 
 
 @app.route('/segments/<path:segment>')
 def serve_segments(segment):
-    log = logging.getLogger(__name__)
-
     location = os.path.join('segments', segment)
     if not os.path.isfile(location):
         log.error('Requested segment %s does not exist.', segment)
-    else:
-        data = ''
-        with open(location, 'rb') as file:
-            data = str(file.read(4))
-
-        log.debug('Requested segment file at ' + location + ' [preamble=' + data + ']')
 
     return send_from_directory('segments', segment, cache_timeout=1)
 

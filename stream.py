@@ -131,7 +131,7 @@ def terminate_portaudio():
 
 class InputStream(threading.Thread):
     def __init__(self, channels, segment_duration, sampling_rate, sample_format, max_segments, prefix,
-                 device_name=None):
+                 device_name=None, name=None):
         super().__init__()
 
         self.device_name = device_name
@@ -141,6 +141,8 @@ class InputStream(threading.Thread):
         self.format = sample_format
         self.max_segments = max_segments
         self.prefix = prefix
+
+        self.name = name if name is not None else self.prefix
 
         self.log = logging.getLogger(self.prefix)
 
