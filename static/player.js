@@ -115,9 +115,9 @@ function buttonTapped() {
 
             //Debugging:
             let divOffset = document.getElementById("offsetDiv");
-            divOffset.innerHTML = "Offset: " + playback_offset * 1000 + "ms <br/>";
+            divOffset.innerHTML = "Offset: " + client_time_offset * 1000 + "ms <br/>";
 
-            log("Request took " + client_time_offset + " s. Using additional offset of " + playback_offset);
+            log("Request took " + client_time_offset + " s. Using additional offset of " + client_time_offset / 2 + "s");
             log("Attempting to start playback for segment " + seq_no + " at offset " + playback_offset);
 
             let found_first = false;
