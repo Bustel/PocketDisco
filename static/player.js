@@ -60,7 +60,7 @@ function loadButtonTapped() {
                 error(data);
             }
         }
-    }
+    };
 
     let btnLoad = document.getElementById("load");
     btnLoad.disabled = true;
@@ -117,10 +117,11 @@ function buttonTapped() {
             divOffset.innerHTML = "Audio offset: " + audio_offset + " s. JS offset: " + js_offset + "s. <br/>";
 
             let client_offset = (audio_offset > 0) ? audio_offset : js_offset;
+            log("Request took " + client_offset + " s.");
+
+
             client_offset /= 2;
             playback_offset += client_offset;
-
-            log("Request took " + client_offset + " s.");
             log("Attempting to start playback for segment " + seq_no + " at offset " + playback_offset);
 
             let found_first = false;
@@ -178,6 +179,7 @@ function buttonTapped() {
 function scheduleSegment(buffer, offset) {
     let start_time;
 
+
     if (isStopped) {
         //Just starting playback:
         playback_start_local_time = context.currentTime;
@@ -197,6 +199,7 @@ function scheduleSegment(buffer, offset) {
     let source = context.createBufferSource();
     source.onended = function (ev) {
         scheduled_item_count--;
+        log("Ended at " + new Date().getTime() / 1000);
     };
     source.buffer = buffer;
     source.connect(context.destination);
