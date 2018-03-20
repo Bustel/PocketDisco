@@ -13,7 +13,7 @@ function loadSegments(max_segments) {
         const segments = request.response.segments;
 
         if (segments.length === 0) {
-            console.info("Empty segment list.");
+            postMessage(["log", "log", "Empty segment list."]);
             stopTimer();
             return;
         }
@@ -32,23 +32,23 @@ function loadSegments(max_segments) {
 
             if (segment.no < expected) {
                 //We have already seen this segment:
-                console.info("Already have " + segment.no);
+                postMessage(["log", "log", "Already have " + segment.no]);
             } else if (segment.no > expected) {
                 //There was a gap: stop everything
-                warn("Gap detected: expected " + expected + ", but got " + segment.no);
+                postMessage(["log", "warn", "Gap detected: expected " + expected + ", but got " + segment.no]);
                 last_seq_no = -1;
                 postMessage(["gap"]);
                 stopTimer();
                 return;
             } else if (segment.no === expected) {
                 //This is the next expected segment:
-                console.debug("Downloading segment no. " + segment.no);
+                postMessage(["log", "log", "Downloading segment no. " + segment.no]);
                 loadSound(segment);
                 downloaded++;
                 last_seq_no = segment.no;
 
                 if ((downloaded === max_segments) && (i < segments.length - 1)) {
-                    warn("Max. number of segments reached. Ignoring remaining segments.");
+                    postMessage(["log", "warn", "Max. number of segments reached. Ignoring remaining segments."]);
                     break;
                 }
             }
@@ -61,7 +61,7 @@ function loadSegments(max_segments) {
 }
 
 function timer() {
-    log("Timer elapsed");
+    postMessage(["log", "log", "Timer elapsed"]);
     timeout_handle = null;
 
     //Ask main script for number of segments we can download:
@@ -78,14 +78,14 @@ function loadSound(segment) {
             segment.data = request.response;
 
             if (segment.data.byteLength === 0) {
-                warn('Trying to pass empty segment data to Decoder')
+                postMessage(["log", "warn", 'Trying to pass empty segment data to Decoder']);
             } else {
-                log(segment.data.byteLength)
+                postMessage(["log", "log", segment.data.byteLength]);
             }
 
             postMessage(["segment", segment]);
         } else {
-            log('Segment request failed', request.response)
+            postMessage(["log", "error", 'Segment request failed', request.response]);
         }
 
     };
@@ -93,7 +93,7 @@ function loadSound(segment) {
 }
 
 function stopTimer() {
-    log("Stopping timer.");
+    postMessage(["log", "log", "Stopping timer."]);
     is_active = false;
 
     if (timeout_handle != null) {
@@ -108,7 +108,7 @@ onmessage = function (event) {
         is_active = true;
 
         interval = event.data[1];
-        log("Starting timer. Interval = " + interval);
+        postMessage(["log", "log", "Starting timer. Interval = " + interval]);
         timer(); //immediately execute first call
     }
     if (event.data[0] === "stop" && (is_active === true)) {

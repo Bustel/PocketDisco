@@ -1,5 +1,5 @@
 let log_list = [];
-const max_log_size = 5;
+const max_log_size = 10;
 
 const enable_html_log = true;
 

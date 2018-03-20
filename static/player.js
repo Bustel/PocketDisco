@@ -48,7 +48,19 @@ function loadButtonTapped() {
             let capacity = isPlaying ? (max_scheduled_items - scheduled_item_count) : max_buffered_items;
             http_worker.postMessage(["capacity", capacity]);
         }
-    };
+        if (e.data[0] === "log") {
+            let data = e.data[2];
+            if (e.data[1] === "warn") {
+                warn(data);
+            }
+            if (e.data[1] === "log") {
+                log(data);
+            }
+            if (e.data[1] === "error") {
+                error(data);
+            }
+        }
+    }
 
     let btnLoad = document.getElementById("load");
     btnLoad.disabled = true;
@@ -101,7 +113,7 @@ function buttonTapped() {
             let client_time_offset = (new Date().getTime() - client_request_time) / 1000;
             playback_offset += client_time_offset / 2;
 
-            log("Request took " + client_time_offset + " s. Using additional offset of " + playback_offset + ".");
+            log("Request took " + client_time_offset + " s. Using additional offset of " + playback_offset);
             log("Attempting to start playback for segment " + seq_no + " at offset " + playback_offset);
 
             let found_first = false;
