@@ -58,7 +58,7 @@ function processNewSegment(segment) {
     //Decode segment first:
     context.decodeAudioData(segment.data, function (buffer) {
         if (isPlaying) {
-            console.log("processNewSegment: scheduling seq " + segment.no);
+            log("processNewSegment: scheduling seq " + segment.no);
             scheduleSegment(buffer, 0);
         } else if (isStopped) {
             //Store segment for later playback:
@@ -72,10 +72,11 @@ function processNewSegment(segment) {
             btnPlay.disabled = false;
         }
     }, function (e) {
-        console.log('Failed to decode audio data', e);
-        console.log(segment.data);
+        log('Failed to decode audio data', e);
+        log(segment.data);
     });
 }
+
 
 function buttonTapped() {
     if (isPlaying) {
@@ -84,7 +85,7 @@ function buttonTapped() {
 
     if (isStopped) {
         if (segment_buffer.length === 0) {
-            console.log("Cannot start playback: empty buffer.");
+            log("Cannot start playback: empty buffer.");
             return;
         }
 
@@ -100,8 +101,8 @@ function buttonTapped() {
             let client_time_offset = (new Date().getTime() - client_request_time) / 1000;
             playback_offset += client_time_offset / 2;
 
-            console.log("Request took " + client_time_offset + " s.");
-            console.log("Attempting to start playback for segment " + seq_no + " at offset " + playback_offset);
+            log("Request took " + client_time_offset + " s. Using additional offset of " + playback_offset + ".");
+            log("Attempting to start playback for segment " + seq_no + " at offset " + playback_offset);
 
             let found_first = false;
 
@@ -117,22 +118,22 @@ function buttonTapped() {
 
                 let segment = segment_buffer[index];
                 if (segment.no < seq_no) {
-                    console.log("Seq " + segment.no + " already played.");
+                    log("Seq " + segment.no + " already played.");
                 }
                 else if (segment.no === seq_no) {
                     found_first = true;
-                    console.log("Segment found. Scheduling for playback.");
+                    log("Segment found. Scheduling for playback.");
                     scheduleSegment(segment_buffer[index].buffer, playback_offset);
                 } else if (segment.no > seq_no)
                     if (!found_first) {
-                        console.log("Seq " + segment.no + " for future play (not found first yet).");
+                        log("Seq " + segment.no + " for future play (not found first yet).");
                     } else {
                         scheduleSegment(segment_buffer[index].buffer, 0);
                     }
             }
 
             if (!found_first) {
-                console.error("Requested segment with no " + seq_no + " not yet buffered.");
+                error("Requested segment with no " + seq_no + " not yet buffered.");
             }
             else {
                 let btnPlay = document.getElementById("play");

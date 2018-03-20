@@ -35,7 +35,7 @@ function loadSegments(max_segments) {
                 console.info("Already have " + segment.no);
             } else if (segment.no > expected) {
                 //There was a gap: stop everything
-                console.warn("Gap detected: expected " + expected + ", but got " + segment.no);
+                warn("Gap detected: expected " + expected + ", but got " + segment.no);
                 last_seq_no = -1;
                 postMessage(["gap"]);
                 stopTimer();
@@ -48,7 +48,7 @@ function loadSegments(max_segments) {
                 last_seq_no = segment.no;
 
                 if ((downloaded === max_segments) && (i < segments.length - 1)) {
-                    console.warn("Max. number of segments reached. Ignoring remaining segments.");
+                    warn("Max. number of segments reached. Ignoring remaining segments.");
                     break;
                 }
             }
@@ -61,7 +61,7 @@ function loadSegments(max_segments) {
 }
 
 function timer() {
-    console.log("Timer elapsed");
+    log("Timer elapsed");
     timeout_handle = null;
 
     //Ask main script for number of segments we can download:
@@ -78,14 +78,14 @@ function loadSound(segment) {
             segment.data = request.response;
 
             if (segment.data.byteLength === 0) {
-                console.warn('Trying to pass empty segment data to Decoder')
+                warn('Trying to pass empty segment data to Decoder')
             } else {
-                console.log(segment.data.byteLength)
+                log(segment.data.byteLength)
             }
 
             postMessage(["segment", segment]);
         } else {
-            console.log('Segment request failed', request.response)
+            log('Segment request failed', request.response)
         }
 
     };
@@ -93,7 +93,7 @@ function loadSound(segment) {
 }
 
 function stopTimer() {
-    console.log("Stopping timer.");
+    log("Stopping timer.");
     is_active = false;
 
     if (timeout_handle != null) {
@@ -108,7 +108,7 @@ onmessage = function (event) {
         is_active = true;
 
         interval = event.data[1];
-        console.log("Starting timer. Interval = " + interval);
+        log("Starting timer. Interval = " + interval);
         timer(); //immediately execute first call
     }
     if (event.data[0] === "stop" && (is_active === true)) {
