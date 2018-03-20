@@ -21,7 +21,7 @@ def shutdown_app():
 
 
 def run_flask():
-    app.run('0.0.0.0', PORT, use_reloader=False)
+    app.run('0.0.0.0', PORT, use_reloader=False, threaded=True)
 
 
 @app.route('/')
