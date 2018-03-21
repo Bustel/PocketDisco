@@ -35,30 +35,6 @@ function init() {
     scheduled_item_count = 0;
 }
 
-let noise_source = null;
-
-function createWhiteNoiseBuffer() {
-    let myArrayBuffer = context.createBuffer(2, context.sampleRate * 3, context.sampleRate);
-
-    // Fill the buffer with white noise;
-    //just random values between -1.0 and 1.0
-    for (let channel = 0; channel < myArrayBuffer.numberOfChannels; channel++) {
-        // This gives us the actual ArrayBuffer that contains the data
-        let nowBuffering = myArrayBuffer.getChannelData(channel);
-        for (let i = 0; i < myArrayBuffer.length; i++) {
-            // Math.random() is in [0; 1.0]
-            // audio needs to be in [-1.0; 1.0]
-            nowBuffering[i] = Math.random() * 2 - 1;
-        }
-    }
-
-    noise_source = context.createBufferSource();
-    noise_source.buffer = myArrayBuffer;
-    noise_source.connect(context.destination);
-    noise_source.loop = true;
-    noise_source.start();
-}
-
 function loadButtonTapped() {
     //Start downloader:
     let http_worker = new Worker('/static/segment_loader.js');
@@ -128,9 +104,6 @@ function buttonTapped() {
         }
 
         let async = false;
-        if (document.getElementById("checkUseWhiteNoise").checked) {
-            createWhiteNoiseBuffer();
-        }
 
         const request = new XMLHttpRequest();
         request.open("post", "/api/get_current_segment", async);
@@ -147,7 +120,7 @@ function buttonTapped() {
             playback_offset += client_offset;
             log("Attempting to start playback for segment " + seq_no + " at offset " + playback_offset);
 
-            
+
             let found_first = false;
             let max = segment_buffer_insert_index;
             let min = segment_buffer_insert_index - (max_buffered_items - 1);
@@ -215,19 +188,33 @@ function scheduleSegment(buffer, offset) {
     isStopped = false;
 
     //Prepare playback:
+
+    let base_t = performance.now();
+
     let source = context.createBufferSource();
     source.onended = function (ev) {
         scheduled_item_count--;
         log("Ended at " + new Date().getTime() / 1000);
     };
-    source.buffer = buffer;
-    source.connect(context.destination);
-    source.start(start_time, offset);
+    let create_source_t = performance.now();
 
-    if (noise_source != null) {
-        noise_source.stop();
-        noise_source = null;
+    source.buffer = buffer;
+    let assign_buffer_t = performance.now();
+
+    source.connect(context.destination);
+    let connect_t = performance.now();
+
+    if (document.getElementById("checkTest").checked) {
+        offset += (connect_t - base_t) / 1000;
+        log("Using new offset of " + offset + "s.");
     }
+
+    source.start(start_time, offset);
+    let start_t = performance.now();
+
+
+    log("Performance summary: " + (start_t - connect_t) + " " + (connect_t - assign_buffer_t)
+        + " " + (assign_buffer_t - create_source_t) + " " + (create_source_t - base_t));
 
 
     last_seg_end_time += buffer.duration - offset;
