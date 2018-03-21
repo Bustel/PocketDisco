@@ -10,8 +10,15 @@
 <body>
 <input id="load" onclick="loadButtonTapped()" type="button" value="Load"/>
 <input id="play" onclick="buttonTapped()" type="button" value="Play"/>
-
-<div id="offsetDiv"></div>
-<div id="divOut"></div>
+<br/>
+<label for="checkUseWhiteNoise">
+    <input id="checkUseWhiteNoise" type="checkbox"/>
+    Start Session on Download
+</label>
+<div id="log">
+    <br/>
+    <b>Log</b> <br/>
+    <div id="divLog" style="overflow-y: scroll; height:200px;"></div>
+</div>
 </body>
 </html>

@@ -33,6 +33,30 @@ function init() {
     scheduled_item_count = 0;
 }
 
+let noise_source = null;
+
+function createWhiteNoiseBuffer() {
+    let myArrayBuffer = context.createBuffer(2, context.sampleRate * 3, context.sampleRate);
+
+    // Fill the buffer with white noise;
+    //just random values between -1.0 and 1.0
+    for (let channel = 0; channel < myArrayBuffer.numberOfChannels; channel++) {
+        // This gives us the actual ArrayBuffer that contains the data
+        let nowBuffering = myArrayBuffer.getChannelData(channel);
+        for (let i = 0; i < myArrayBuffer.length; i++) {
+            // Math.random() is in [0; 1.0]
+            // audio needs to be in [-1.0; 1.0]
+            nowBuffering[i] = Math.random() * 2 - 1;
+        }
+    }
+
+    noise_source = context.createBufferSource();
+    noise_source.buffer = myArrayBuffer;
+    noise_source.connect(context.destination);
+    noise_source.loop = true;
+    noise_source.start();
+}
+
 function loadButtonTapped() {
     //Start downloader:
     let http_worker = new Worker('/static/segment_loader.js');
@@ -101,8 +125,16 @@ function buttonTapped() {
             return;
         }
 
+        let async = false;
+        if (document.getElementById("checkUseWhiteNoise").checked) {
+            createWhiteNoiseBuffer();
+            //async = true;
+        }
+
+        log("Audio context state: " + context.state);
+
         const request = new XMLHttpRequest();
-        request.open("post", "/api/get_current_segment", false);
+        request.open("post", "/api/get_current_segment", async);
         request.onload = function () {
             let resp_obj = JSON.parse(request.response);
 
@@ -112,14 +144,9 @@ function buttonTapped() {
             let js_offset = (new Date().getTime() / 1000 - resp_obj.js_time);
             let audio_offset = context.currentTime - resp_obj.audio_time;
 
-            //Debugging:
-            let divOffset = document.getElementById("offsetDiv");
-            divOffset.innerHTML = "Audio offset: " + audio_offset + " s. JS offset: " + js_offset + "s. <br/>";
+            log("Request durations: Audio=" + audio_offset + "s. System time=" + js_offset + "s.");
 
             let client_offset = (audio_offset > 0) ? audio_offset : js_offset;
-            log("Request took " + client_offset + " s.");
-
-
             client_offset /= 2;
             playback_offset += client_offset;
             log("Attempting to start playback for segment " + seq_no + " at offset " + playback_offset);
@@ -178,8 +205,6 @@ function buttonTapped() {
 
 function scheduleSegment(buffer, offset) {
     let start_time;
-
-
     if (isStopped) {
         //Just starting playback:
         playback_start_local_time = context.currentTime;
@@ -204,6 +229,12 @@ function scheduleSegment(buffer, offset) {
     source.buffer = buffer;
     source.connect(context.destination);
     source.start(start_time, offset);
+
+    if (noise_source != null) {
+        noise_source.stop();
+        noise_source = null;
+    }
+
 
     last_seg_end_time += buffer.duration - offset;
 
