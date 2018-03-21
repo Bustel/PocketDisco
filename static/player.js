@@ -16,6 +16,8 @@ const max_buffered_items = 8; //max. number of items to be stored locally. has t
 
 const segment_list_check_interval = 3000;
 
+let req_time;
+
 window.onload = init;
 
 function init() {
@@ -128,10 +130,7 @@ function buttonTapped() {
         let async = false;
         if (document.getElementById("checkUseWhiteNoise").checked) {
             createWhiteNoiseBuffer();
-            //async = true;
         }
-
-        log("Audio context state: " + context.state);
 
         const request = new XMLHttpRequest();
         request.open("post", "/api/get_current_segment", async);
@@ -141,18 +140,15 @@ function buttonTapped() {
             let seq_no = resp_obj.seg_no;
             let playback_offset = resp_obj.offset;
 
-            let js_offset = (new Date().getTime() / 1000 - resp_obj.js_time);
-            let audio_offset = context.currentTime - resp_obj.audio_time;
+            let client_offset = (performance.now() - req_time) / 1000;
+            log("Request took " + client_offset + "s.");
 
-            log("Request durations: Audio=" + audio_offset + "s. System time=" + js_offset + "s.");
-
-            let client_offset = (audio_offset > 0) ? audio_offset : js_offset;
             client_offset /= 2;
             playback_offset += client_offset;
             log("Attempting to start playback for segment " + seq_no + " at offset " + playback_offset);
 
+            
             let found_first = false;
-
             let max = segment_buffer_insert_index;
             let min = segment_buffer_insert_index - (max_buffered_items - 1);
             if (min < 0) {
@@ -195,11 +191,9 @@ function buttonTapped() {
             }
         };
         //Add content:
-        let time = {};
-        time.audio_time = context.currentTime;
-        time.js_time = new Date().getTime() / 1000;
         request.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
-        request.send(JSON.stringify(time));
+        req_time = performance.now();
+        request.send("{}");
     }
 }
 
