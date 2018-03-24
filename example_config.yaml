@@ -1,0 +1,26 @@
+!<PocketDiscoConfiguration>
+port: 5000
+log_level: 10
+streams:
+- !<stream>
+  name: stream_name
+  rate: 44100
+  device: pulse
+  channels: 2
+  max_segments: 5
+  format: paInt16
+- !<stream>
+  name: stream_name2
+  rate: 44100
+  device: pulse
+  channels: 2
+  max_segments: 5
+  format: paInt16
+- !<stream>
+  name: stream_name3
+  rate: 44100
+  device: pulse
+  channels: 2
+  max_segments: 5
+  format: paInt16
+use_pulseaudio: true

@@ -10,6 +10,7 @@ pyaudio = "*"
 flask = "*"
 requests = "*"
 pulsectl = "*"
+"ruamel.yaml" = "*"
 
 [requires]
 python_version = "3.6"

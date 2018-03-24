@@ -9,19 +9,13 @@ import subprocess
 import logging
 
 import stream
+import config
 from flask_app import run_flask, shutdown_app, audio_streams
 
-if platform.system() == "Linux":
+if platform.system() == "Linux":  # TODO Make this configuration specific.
     import pulsectl
 
-FORMAT = pyaudio.paInt16
-RATE = 44100
-CHANNELS = 2
-SEGMENT_DURATION = 5
-MAX_SEGMENTS = 5
-PORT = 5000
-NO_STREAMS = 1
-
+CONFIG = config.PDConfig()
 flask_thread = threading.Thread(target=run_flask)
 loaded_pulse_modules = []
 
@@ -37,7 +31,7 @@ def pulse_setup_sinks():
     modules = []
     if platform.system() == "Linux":
         with pulsectl.Pulse('PocketDisco') as pulse:
-            for i in range(0, NO_STREAMS):
+            for i in range(0, len(CONFIG.streams)):
                 index = pulse.module_load("module-null-sink",
                                           "sink_name=PD_Stream%d \
                                            sink_properties=device.description=PocketDisco_Stream%d" % (i, i))
@@ -113,20 +107,38 @@ def shutdown():
     stream.terminate_portaudio()
     log.info('Stopped.')
 
-    pulse_remove_sinks(loaded_pulse_modules)
+    if CONFIG.use_pulseaudio:
+        pulse_remove_sinks(loaded_pulse_modules)
 
 
-def main():
-    logging.basicConfig(level=logging.DEBUG)
-    log = logging.getLogger(__name__)
+def load_configuration():
+    global CONFIG
+    if os.path.isfile('config.yaml'):
+        try:
+            CONFIG = config.PDConfig.from_file('config.yaml')
+        except ValueError as e:
+            pass
+
+
+def setup_logging():
+    logging.basicConfig(level=CONFIG.log_level)
     werkzeug_logger = logging.getLogger('werkzeug')
     werkzeug_logger.setLevel(logging.WARNING)
 
+
+def main():
+    global CONFIG
     global loaded_pulse_modules
-    signal.signal(signal.SIGINT, sighandler)
 
     if platform.system() == 'Windows':
         os.chdir(os.path.dirname(sys.argv[0]))
+
+    load_configuration()
+    setup_logging()
+
+    log = logging.getLogger(__name__)
+
+    signal.signal(signal.SIGINT, sighandler)
 
     if not os.path.isdir('segments'):
         try:
@@ -135,25 +147,38 @@ def main():
         except OSError as e:
             log.error(e)
 
-    loaded_pulse_modules = pulse_setup_sinks()
-    if platform.system() == "Linux":
-        device_name = "pulse"
-    else:
-        device_name = "Stereomix (Realtek High Definit"
+    if CONFIG.use_pulseaudio:
+        loaded_pulse_modules = pulse_setup_sinks()
 
-    for i in range(0, NO_STREAMS):
-        s = stream.InputStream(CHANNELS,
-                               SEGMENT_DURATION,
-                               RATE, FORMAT,
-                               MAX_SEGMENTS,
+    for i in range(0, len(CONFIG.streams)):
+        s_cfg = CONFIG.streams[i]
+
+        if s_cfg.format == 'paInt16':
+            pa_format = pyaudio.paInt16
+        elif s_cfg.format == 'paInt24':
+            pa_format = pyaudio.paInt24
+        elif s_cfg.format == 'paInt32':
+            pa_format = pyaudio.paInt32
+        elif s_cfg.format == 'paFloat32':
+            pa_format = pyaudio.paFloat32
+        else:
+            log.warning('Configuration file contains unknown format for stream. Using paInt16 instead.')
+            pa_format = pyaudio.paInt16
+
+        s = stream.InputStream(s_cfg.channels,
+                               s_cfg.segment_duration,
+                               s_cfg.rate, pa_format,
+                               s_cfg.max_segments,
                                "stream%d" % i,
-                               device_name=device_name)
+                               device_name=s_cfg.device,
+                               name=s_cfg.name)
         audio_streams.append(s)
         s.start()
 
     # Sleep is necessary for streams to appear as clients.
-    time.sleep(2)
-    pulse_attach_streams()
+    if CONFIG.use_pulseaudio:
+        time.sleep(2)
+        pulse_attach_streams()
 
     flask_thread.start()
 
