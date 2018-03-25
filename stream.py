@@ -241,6 +241,7 @@ class InputStream(threading.Thread):
         while self.running:
 
             samples = 0
+            # TODO Allow customizable channel map
             blob = PCMBlob(self.sampling_rate, pyaudio.get_sample_size(self.format), self.channels, 0x1 | 0x2)
 
             while samples < self.sampling_rate * self.segment_duration and self.running:

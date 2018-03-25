@@ -2,3 +2,4 @@
 segments/
 static/media
 __pycache__/
+config.yaml
